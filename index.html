@@ -23,10 +23,11 @@
             margin-bottom: 20px;
         }
 
-        .video-container video,
-        .image-container img {
-            width: 48%;
-            height: auto;
+        /* .video-container video, */
+        .video-container video {
+            width: 100%; /* Adjust this to control the size of the video */
+            max-width: 600px; /* Set a maximum width for the video */
+            height: auto; /* Maintain aspect ratio */
         }
 
         .image-container {
@@ -35,22 +36,11 @@
             margin-bottom: 20px;
         }
 
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .grid-container video {
-            width: 100%;
-            height: auto;
-        }
-
         .caption {
             text-align: center;
             font-style: italic;
             color: #666;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -71,75 +61,67 @@
         </div>
     </div>
 
-    <!-- <h2>Benchmark different ways of influencing auto-regressive models and diffusion models at test time</h2> -->
-    <!-- Add your content here as needed -->
-    <!-- <img src='figs/' width="90%" height="auto"> -->
-    <!-- <h2>Visualize diffusion dynamics under influence</h2>
-    <div class="grid-container">
-        <video controls>
-            Placeholder for video 1
-            Your browser does not support the video tag.
-        </video>
-        <video controls>
-            Placeholder for video 2
-            Your browser does not support the video tag.
-        </video>
-        <video controls>
-            Placeholder for video 3
-            Your browser does not support the video tag.
-        </video>
-    </div>
-
-    <div class="image-container">
-        <div>
-            <img src="placeholder1.jpg" alt="Diagram of various inference time steering methods">
-            <p class="caption">Diagram of various inference time steering methods</p>
-        </div>
-        <div>
-            <img src="placeholder2.jpg" alt="Interaction improves alignment at the cost of constraint violation">
-            <p class="caption">Interaction improves alignment at the cost of constraint violation</p>
-        </div>
-    </div> -->
+    
 
     <h2>Sample visualization of using drawings to influence policy rollouts</h2>
-    <div class="grid-container">
-        <video controls>
-            <!-- Placeholder for video 1 -->
-            Your browser does not support the video tag.
-        </video>
-        <video controls>
-            <!-- Placeholder for video 2 -->
-            Your browser does not support the video tag.
-        </video>
-        <video controls>
-            <!-- Placeholder for video 3 -->
-            Your browser does not support the video tag.
-        </video>
-        <video controls>
-            <!-- Placeholder for video 4 -->
-            Your browser does not support the video tag.
-        </video>
-        <video controls>
-            <!-- Placeholder for video 5 -->
-            Your browser does not support the video tag.
-        </video>
-        <video controls>
-            <!-- Placeholder for video 6 -->
-            Your browser does not support the video tag.
-        </video>
-        <video controls>
-            <!-- Placeholder for video 7 -->
-            Your browser does not support the video tag.
-        </video>
-        <video controls>
-            <!-- Placeholder for video 8 -->
-            Your browser does not support the video tag.
-        </video>
-        <video controls>
-            <!-- Placeholder for video 9 -->
-            Your browser does not support the video tag.
-        </video>
+
+    <div class="video-container">
+        <div>
+            <video src="figs/exp02_act_op.mp4" type="video/mp4" controls="controls" class="center"></video>
+            <p class="caption">ACT - Output Perturbation</p>
+        </div>
+        <div>
+            <video src="figs/exp02_act_ph.mp4" type="video/mp4" controls="controls" class="center"></video>
+            <p class="caption">ACT - Post-Hoc Ranking</p>
+        </div>
     </div>
+
+    <div class="video-container">
+        <div>
+            <video src="figs/exp02_dp_op.mp4" type="video/mp4" controls="controls" class="center"></video>
+            <p class="caption">DP - Output Perturbation</p>
+        </div>
+        <div>
+            <video src="figs/exp02_dp_ph.mp4" type="video/mp4" controls="controls" class="center"></video>
+            <p class="caption">DP - Post-Hoc Ranking</p>
+        </div>
+    </div>
+
+    <div class="video-container">
+        <div>
+            <video src="figs/exp02_dp_bi.mp4" type="video/mp4" controls="controls" class="center"></video>
+            <p class="caption">DP - Biased Initialization</p>
+        </div>
+        <div>
+            <video src="figs/exp02_dp_gd.mp4" type="video/mp4" controls="controls" class="center"></video>
+            <p class="caption">DP - Guided Diffusion</p>
+        </div>
+    </div>
+
+    <div class="video-container">
+        <div>
+            <video src="figs/exp02_dp_rd.mp4" type="video/mp4" controls="controls" class="center"></video>
+            <p class="caption">DP - Stochastic Sampling</p>
+        </div>
+    </div>
+
+<h2>Visualize diffusion dynamics under influence</h2>
+
+<div class="video-container">
+    <div>
+        <video src="figs/exp02_dp_bi_evolution.mp4" type="video/mp4" controls="controls" class="center"></video>
+        <p class="caption">DP - Biased Initialization</p>
+    </div>
+    <div>
+        <video src="figs/exp02_dp_gd_evolution.mp4" type="video/mp4" controls="controls" class="center"></video>
+        <p class="caption">DP - Guided Diffusion</p>
+    </div>
+    <div>
+        <video src="figs/exp02_dp_rd_evolution.mp4" type="video/mp4" controls="controls" class="center"></video>
+        <p class="caption">DP - Stochastic Sampling</p>
+    </div>
+</div>
+
 
 </body>
 
