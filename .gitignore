@@ -2,3 +2,5 @@ itps/common/*/__pycache__/
 itps/common/policies/*/__pycache__/
 itps/weights_*/
 itps/weights_*.zip
+.DS_Store
+.vscode
