@@ -2,126 +2,654 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inference-Time Policy Steering with Human Interactions</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-        }
-
-        h1,
-        h2 {
-            color: #333;
+        .center {
+        width: 100%;
         }
 
         .video-container {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
+            position: relative;
+            width: 100%;
+            height: 0;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            overflow: hidden;
         }
 
-        /* .video-container video, */
-        .video-container video {
-            width: 100%; /* Adjust this to control the size of the video */
-            max-width: 600px; /* Set a maximum width for the video */
-            height: auto; /* Maintain aspect ratio */
+        .full-width-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
         }
-
-        .image-container {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-
         .caption {
             text-align: center;
-            font-style: italic;
-            color: #666;
-            margin-top: 10px;
+            margin-top: auto; /* Pushes the caption to the bottom of the container */
+        }        
+        .transparent-image {
+            opacity: 0.7; /* Set opacity to 50% */
         }
     </style>
 </head>
 
+<head>
+    <!-- Title -->
+    <title>Inference-Time Policy Steering</title>
+
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Inference-Time Policy Steering with Human Interactions">
+    <meta name="keywords" content="Foundation Models, Generative Policies, Inference-Time Sampling, Imitation Learning, Motion Editing">
+
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <!-- https://fontawesome.com/cheatsheet -->
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.rawgit.com/jpswalsh/academicons/master/css/academicons.min.css">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-79592980-2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+        gtag('js', new Date());
+
+        gtag('config', 'UA-79592980-2');
+    </script>
+
+</head>
+
+
 <body>
+    <!-- <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark"> -->
+    <nav class="navbar navbar-expand-md fixed-top navbar-dark" style="background-color: #A31F34;">
+        <a class="navbar-brand" href="#">Steering Pre-Trained Policy with Inference-Time User Input</a>
 
-    <h1>Inference-Time Policy Steering with Human Interactions</h1>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarToggle">
 
-    <h2>Exploring motion manifold of ACT vs DP in terms of multimodality and constraint satisfaction</h2>
-    <div class="video-container">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarToggle">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#Abstract">Abstract</a>
+                </li>
+                <!-- <li class="nav-item">
+                    <a class="nav-link" href="#Paper">Paper</a>
+                </li>               -->
+                <li class="nav-item">
+                    <a class="nav-link" href="#Motivation">Motivation</a>
+                <!-- <li class="nav-item">
+                    <a class="nav-link" href="#Talk">Talk</a>
+                </li> -->
+                <li class="nav-item">
+                    <a class="nav-link" href="#Method">Method</a>
+                </li>
+                <!-- <li class="nav-item">
+                    <a class="nav-link" href="#Experiments">Experiments</a>
+                </li> -->
+                <!-- <li class="nav-item">
+
+                    <a class="nav-link" href="#Related">Related Works</a>
+                </li>                   -->
+            </ul>
+        </div>
+    </nav>
+    <br>
+    <div class="container" style="padding-top: 80px; font-size: 20px">
+        <div align="center">
+            <h2 class="text-center" align="center">
+                Inference-Time Policy Steering through Human Interactions
+            </h2><br>
+            <h6>
+                <a href="https://yanweiw.github.io/" target="_blank">Yanwei Wang<sup>1</sup></a>&nbsp;&nbsp;&nbsp;&nbsp;
+                <a href="https://liruiw.github.io/" target="_blank">Lirui Wang<sup>1</sup></a>&nbsp;&nbsp;&nbsp;&nbsp;
+                <a href="https://yilundu.github.io/" target="_blank">Yilun Du<sup>1</sup></a>&nbsp;&nbsp;&nbsp;&nbsp;
+                <a href="https://balakumar-s.github.io/" target="_blank">Balakumar
+                    Sundaralingam<sup>2</sup></a>&nbsp;&nbsp;&nbsp;&nbsp;
+                <a href="https://www.xuningyang.com/" target="_blank">Xuning
+                    Yang<sup>2</sup></a>&nbsp;&nbsp;&nbsp;&nbsp;
+                <a href="https://scholar.google.com/citations?user=48Y9F-YAAAAJ&hl=en" target="_blank">Yu-Wei Chao<sup>2</sup></a>&nbsp;&nbsp;&nbsp;&nbsp;
+                <a href="https://ai.stanford.edu/~cdarpino/" target="_blank">Claudia
+                    Pérez-D’Arpino<sup>2</sup></a>&nbsp;&nbsp;&nbsp;&nbsp;
+                <a href="https://homes.cs.washington.edu/~fox/" target="_blank">Dieter Fox<sup>2</sup></a>&nbsp;&nbsp;&nbsp;&nbsp;
+                <a href="https://interactive.mit.edu/about/people/julie" target="_blank">Julie Shah<sup>1</sup></a><br>
+            </h6>
+            <small><sup>1</sup>Interactive Robotics Lab / MIT CSAIL</small>
+            &nbsp;&nbsp;&nbsp;&nbsp;
+            <small><sup>2</sup>NVIDIA Seattle Robotics Lab</small>
+        </div>
+    </div><br><br>
+
+
+        
+    <div class="container">
+        <div align="center">
+            <video src="figs/itps_teaser_final_small.mp4" type="video/mp4" controls="controls" class="center">
+            </video>
+        </div>
+    </div><br><br>
+
+
+    <!-- Abstract -->
+    <div class="container">
+        <h4 id="Abstract" style="padding-top: 70px; margin-top: -80px; ">Abstract - What is ITPS?</h4>
+        <hr>
+
+        <div align="center" style="padding-top: 10px; font-size: 20px">
+            <div class="center">
+                <img class="img-responsive img-rounded" src="figs/framework.jpg" style="width:100%" alt="">
+            </div>
+        </div><br>
+
+        <div style="text-align: justify">
+        Generative policies trained with human demonstrations are capable of achieving multimodal and long-horizon tasks
+        autonomously. However, during inference time humans are often removed from the policy execution loop, limiting the
+        ability to steer pre-trained policy output towards a specific subgoal or trajectory shape among a set of multimodal
+        predictions. Naive approaches to human intervention might inadvertently exacerbate covariate shifts, leading to
+        downstream constraint violation or execution failures. To improve the alignment of policy output and human intent
+        without causing out-of-distribution mistakes, we propose a Inference-Time Policy Steering (ITPS) framework that uses
+        human interactions to bias the generative sampling process instead of fine-tuning the policy on interaction data. We
+        experiment with 3 simulations and real-world benchmarks to test 3 forms of human interactions and their associated
+        alignment distance metric. Out of the 6 sampling strategies we evaluate, our proposed stochastic sampling method
+        combined with diffusion policy achieves the best alignment and distribution shift trade-off.
+        </div>
+    </div><br><br>
+
+    <!-- Paper -->
+    <!-- <div class="container">
+        <h4 id="Paper" style="padding-top: 70px; margin-top: -80px;">Paper</h4>
+        <hr>
+            <td style="padding:20px;width:75%;vertical-align:middle">
+                <a href="https://arxiv.org/abs/2403.17124">
+                    <papertitle>Grounding Language Plans in Demonstrations through Counterfactual Perturbations</papertitle>
+                </a><br>
+                <strong>Yanwei Wang</strong>,
+                Tsun-Hsuan Wang,
+                Jiayuan Mao,
+                Michael Hagenow,
+                Julie Shah
+              <em><br>
+              <a href="https://arxiv.org/abs/2403.17124">arxiv</a> /
+              <a href="https://openreview.net/forum?id=qoHeuRAcSl">review</a> /
+              <a href="https://github.com/yanweiw/glide">code</a> /
+              <a href="https://news.mit.edu/2024/engineering-household-robots-have-little-common-sense-0325">MIT News</a> /
+              <a href="https://techcrunch.com/2024/03/25/large-language-models-can-help-home-robots-recover-from-errors-without-human-help/">techcrunch</a>
+              <br>
+              <strong>ICLR 2024</strong> (<strong style="color:red;">Spotlight</strong>, acceptance rate: 5%)<br>
+              </em><br>
+            </td>
+
+    </div><br><br> -->
+
+    <div class="container">
+        <h4 id="Motivation" style="padding-top: 30px; margin-top: -40px;">Motivation - What is the challenge?</h4>
+        <hr>
+        <div align="center">
+            <video src="figs/itps_motivation.mp4" type="video/mp4" controls="controls" class="center">
+            </video>
+        </div>
+    </div><br><br>
+
+    <div class="container">
+        <h4 id="Method" style="padding-top: 30px; margin-top: -40px;">Method - How to steer policy without adding distribution shift?</h4>
+        <hr>
+
+        <div style='text-align: justify; width: 100%; font-size: 15pt; color:#A31F34'>
+            Three interaction inputs: point, sketch, physical correction
+        </div>
+
+        <div align="center">
+            <video src="figs/itps_interaction.mp4" type="video/mp4" controls="controls" class="center">
+            </video>
+        </div><br>
+
+        <div style='text-align: justify; width: 100%; font-size: 15pt; color:#A31F34'>
+            Six sampling strategies
+            <p></p>
+        </div>
+
         <div>
-            <video src="figs/act_motion_manifold.mp4" type="video/mp4" controls="controls" class="center"></video>
-            <p class="caption">ACT</p>
+            We consider 6 sampling strategies: Random Sampling (<strong>RS</strong>), Output Perturbation (<strong>OP</strong>), Post-Hoc Ranking (<strong>PR</strong>), Biased Initialization (<strong>BI</strong>), Guided Diffusion (<strong>GD</strong>), and Guided Stochastic Sampling (<strong>SS</strong>). <strong>RS, OP</strong> and <strong>PR</strong> are applied to the policy output and are agnostic to policy class. We experiment with two policy classes: Action Chunking Transformer (<strong>ACT</strong>) and Diffusion Policy (<strong>DP</strong>) in this work. <strong>BI, GD</strong> and <strong>SS</strong> are unique to duffusion and are applied to the noise input and diffusion process of the policy respectively. To implement conditional sampling based on user interactions, we use hand-crafted L2 distance metric to convert point and sketch inputs into inference-time cost objectives <strong>&#958;(&#183;)</strong> to compose with the frozen policy. Physical correction input overwrites the policy output and is only compatible with <strong>OP</strong>. We a maze navigation task to illustrate the six sampling strategies, where alignment is measured by the L2 distance between the user input and the policy output and task success correspond to maintaining collision-free.
+            <p></p>
+        </div>
+
+        <div style='text-align: justify; width: 100%; font-size: 15pt; color:#A31F34'>
+            Output Perturbation
+            <p></p>
+        </div>
+        <div class="row">
+            <table class="center">
+                <tr>
+                    <td style="width: 33%; text-align: center;">
+                        <img src='figs/method_op.jpg' width="50%">
+                        <p></p>
+                        <p style="width: 90%; margin: 0 auto; text-align: justify;">User input (sketch or physical corretions) directly overwrites policy output. OP maximizes policy alignment to user input at the cost of potential distribution shift.</p>
+                    </td>
+
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 95%; margin: 0 auto;">
+                            <video src="figs/dp_motion_manifold.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;">Exploring the learned motion manifold of <strong>DP</strong>, which exhibits higher degree of distribution multimodality and constraint satisfaction at OOD locations.</p>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 95%; margin: 0 auto;">
+                            <video src="figs/act_motion_manifold.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;">Exploring the learned motion manifold of <strong>ACT</strong> by overwriting agent
+                            positions with mouse positions. Predictions turn white when a collision occurs.</p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div style='text-align: justify; width: 100%; font-size: 15pt; color:#A31F34'>
+            Post-Hoc Ranking
+            <p></p>
+        </div>
+        <div class="row">
+            <table class="center">
+                <tr>
+                    <td style="width: 33%; text-align: center;">
+                        <img src='figs/method_pr.jpg' width="50%">
+                        <p></p>
+                        <p style="width: 90%; margin: 0 auto; text-align: justify;">Point or sketch input is used to rank policy outputs. PR introduces minimal distribution shift but offers limited alignment improvement if no unconditional sample is already aligned with user input.</p>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 95%; margin: 0 auto;">
+                            <video src="figs/maze_ph.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;"><strong>DP</strong> exhibits good multimodality, so PR can improve alignment, but
+                            only to the extent of the most aligned trajectory in the set of unconditional samples.</p>
+                        </p>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <!-- <div style="width: 95%; margin: 0 auto;">
+                            <video src="figs/act_motion_manifold.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div> -->
+                        <p style=" text-align: center;"><strong>ACT</strong> Do not produce a diverse set of predictions, leading to limited alignment improvement with PR.</p>
+                        </p>
+                    </td>
+
+                </tr>
+            </table>
+        </div>
+
+
+        <div style='text-align: justify; width: 100%; font-size: 15pt; color:#A31F34'>
+            Biased Initialization
+            <p></p>
+        </div>
+        <div class="row">
+            <table class="center">
+                <tr>
+                    <td style="width: 33%; text-align: center;">
+                        <img src='figs/method_bi.jpg' width="40%">
+                        <p></p>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 95%; margin: 0 auto;">
+                            <video src="figs/maze_bi.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;"><strong>DP</strong> can leverage BI to bias the initial noise distribution to improve alignment. 
+                        </p>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <p style=" text-align: center;">However, similar to PR, BI offers user limited control as the diffusion sampling procedure is still unconditional. 
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div style='text-align: justify; width: 100%; font-size: 15pt; color:#A31F34'>
+            Guided Diffusion
+            <p></p>
+        </div>
+        <div class="row">
+            <table class="center">
+                <tr>
+                    <td style="width: 33%; text-align: center;">
+                        <img src='figs/method_gd.jpg' width="40%">
+                        <p></p>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 95%; margin: 0 auto;">
+                            <video src="figs/maze_gd.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;"><strong>DP</strong> augmented with classifier guidance can improve alignment but introduces distribution shift.
+                        </p>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <p style=" text-align: center;">Different from PR and BI, GD can discover new trajectories close to user input that do not necessarily live on the original motion manifold. Hence, there is no guarantee that the execution will staisfy the original constraints and be successful eventually.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div style='text-align: justify; width: 100%; font-size: 15pt; color:#A31F34'>
+            Stochastic Sampling
+            <p></p>
+        </div>
+        <div class="row">
+            <table class="center">
+                <tr>
+                    <td style="width: 33%; text-align: center;">
+                        <img src='figs/method_rd.jpg' width="40%">
+                        <p></p>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 95%; margin: 0 auto;">
+                            <video src="figs/maze_rd.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;"><strong>DP</strong> with guided stochastic sampling achieves the best alignment and distribution shift trade-off.
+                        </p>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <p style=" text-align: center;">Guided Stochastic Sampling is an improved version of GD that can generate trajectories close to user input while maintaining the original motion constraints.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+    <!-- <div class="container">
+        <h4 id="Experiments" style="padding-top: 30px; margin-top: -40px;">Experiments</h4>
+        <hr>
+
+        <div style='text-align: justify; width: 90%; font-size: 15pt; color:#A31F34'>
+            Learned Mode Partitions of Configuration Space for 2D Navigation Tasks
+            <p></p>
         </div>
         <div>
-            <video src="figs/dp_motion_manifold.mp4" type="video/mp4" controls="controls" class="center"></video>
-            <p class="caption">DP</p>
+            The navigation domain serves as a 2D abstraction of the modal structure for multi-step manipulation tasks, where
+            each polygon represents a different mode with its boundary showing the constraint. The goal is to traverse through
+            the sequence consecutively as demonstrated until reaching the last colored polygon (e.g. mode 1 -> 2 -> 3 -> 4 -> 5). Mode transitions violating the demonstrated temporal ordering will lead to task failure (e.g. mode 1 -> 3/4/5).
+            <p></p>
         </div>
-    </div>
 
+        <div class="row">
+            <table class="center">
+                <tr>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_3a.png' width="90%">
+                        <p></p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_3b_new.png' width="90%">
+                        <p></p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_3c.png' width="90%">
+                        <p></p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_3d.png' width="90%">
+                        <p></p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_3e.png' width="90%" class="transparent-image">
+                        <p></p>
+                    </td>
+                </tr>
     
+                <tr> 
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_4a.png' width="90%">
+                        <p></p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_4b_new.png' width="90%">
+                        <p></p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_4c.png' width="90%">
+                        <p></p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_4d.png' width="90%">
+                        <p></p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_4e.png' width="90%" class="transparent-image">
+                        <p></p>
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_5a.png' width="90%">
+                        <p></p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_5b_new.png' width="90%">
+                        <p></p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_5c.png' width="90%">
+                        <p></p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_5d.png' width="90%">
+                        <p></p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <img src='figs/polygon_5e.png' width="90%" class="transparent-image">
+                        <p></p>
+                    </td>
+                </tr>
 
-    <h2>Sample visualization of using drawings to influence policy rollouts</h2>
+                <tr>
+                    <td style="width: 20%; text-align: center;">
+                        <p style="width: 90%; margin: 0 auto;">(a) Demonstrations and ground truth modes</p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <p style="width: 90%; margin: 0 auto;">(b) Grounding learned by GLiDE</p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <p style="width: 90%; margin: 0 auto;">(c) GLiDE without counterfactual data</p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <p style="width: 90%; margin: 0 auto;">(d) GLiDE with incorrect number of modes</p>
+                    </td>
+                    <td style="width: 20%; text-align: center;">
+                        <p style="width: 90%; margin: 0 auto;">(e) Baseline: similarity-based clustering</p>
+                    </td>
+                </tr>
+            </table>
+        </div><br><br>
 
-    <div class="video-container">
-        <div>
-            <video src="figs/exp02_act_op.mp4" type="video/mp4" controls="controls" class="center"></video>
-            <p class="caption">ACT - Output Perturbation</p>
+
+        <div style='text-align: justify; width: 90%; font-size: 15pt; color:#A31F34'>
+            Learned Mode Partitions Explain Why Some Perturbed Trajectories Succeed While Others Fail
+            <p></p>
         </div>
         <div>
-            <video src="figs/exp02_act_ph.mp4" type="video/mp4" controls="controls" class="center"></video>
-            <p class="caption">ACT - Post-Hoc Ranking</p>
+            Learned classifier explains success trajectories by checking if all transitions incur 0 cost (shown by the whiteness of dots). It also explains failure trajectories by checking if there exists at least one invalid transition (indicated by the blackness of dots).
+            <p></p>
         </div>
-    </div>
+        <div class="row">
+            <table class="center">            
+                <tr>
+                    <td style="width: 25%; text-align: center;">
+                        <img src='figs/polygon_succ_1.png' width="80%">
+                        <p></p>
+                    </td>
+                    <td style="width: 25%; text-align: center;">
+                        <img src='figs/polygon_succ_2.png' width="80%">
+                        <p></p>
+                    </td>
 
-    <div class="video-container">
+                    <td style="width: 25%; text-align: center;">
+                        <img src='figs/polygon_fail_1.png' width="80%">
+                        <p></p>
+                    </td>
+                    <td style="width: 25%; text-align: center;">
+                        <img src='figs/polygon_fail_2.png' width="80%">
+                        <p></p>
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td style="width: 25%; text-align: center;">
+                        <p style="width: 80%; margin: 0 auto;">Successful Execution 1</p>
+                    </td>
+                    <td style="width: 25%; text-align: center;">
+                        <p style="width: 80%; margin: 0 auto;">Successful Execution 2</p>
+                    </td>
+
+                    <td style="width: 25%; text-align: center;">
+                        <p style="width: 80%; margin: 0 auto;">Failing Counterfactual 1</p>
+                    </td>
+                    <td style="width: 25%; text-align: center;">
+                        <p style="width: 80%; margin: 0 auto;">Failing Counterfactual 2</p>
+                    </td>
+                </tr>
+            </table>
+        </div><br><br>
+            
+        <div style='text-align: justify; width: 90%; font-size: 15pt; color:#A31F34'>
+            Learned Mode Partitions Allow Planning Reactive Behavior for 2D Navigation Tasks
+            <p></p>
+        </div>
         <div>
-            <video src="figs/exp02_dp_op.mp4" type="video/mp4" controls="controls" class="center"></video>
-            <p class="caption">DP - Output Perturbation</p>
+            The learned grounding classifier can be used to segment whole demonstrations into sub-sequences for each mode, for which we extract the sub-goal (the average crossing point at each boundary) for each mode. Additionally, the explicit mode partitions allow us construct a potential flow controller for each mode that directs the system to reach each sub-goal without leaving the current mode prematurely. Should the execution be derailed by external perturbations, planning without and with the learned mode boundaries can lead to execution failures (left) or successes (right), respectively.
+            <p></p>
+        </div>
+        <div class="row">
+            <table class="center">
+                <tr>
+                    <td style="width: 50%; text-align: center;">
+                        <div style="width: 70%; margin: 0 auto;">
+                            <video src="figs/polygon_no_replanning.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                    </td>
+                    <td style="width: 50%; text-align: center;">
+                        <div style="width: 70%; margin: 0 auto;">
+                            <video src="figs/polygon_replanning.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="width: 50%; text-align: center;">
+                        <p style="width: 70%; margin: 0 auto;">Planning without learned grounding leads to failures due to invalid mode transitions</p>
+                    </td>
+
+                    <td style="width: 50%; text-align: center;">
+                        <p style="width: 70%; margin: 0 auto;">Planning with learned grounding leads to successful recovery that obeys mode constraints</p>
+                    </td>
+                </tr>
+            </table>
+        </div><br><br>
+
+        <div style='text-align: justify; font-size: 15pt; color:#A31F34'>
+            Self-Supervised Data Collection for 2D Navigation Tasks
+            <p></p>
         </div>
         <div>
-            <video src="figs/exp02_dp_ph.mp4" type="video/mp4" controls="controls" class="center"></video>
-            <p class="caption">DP - Post-Hoc Ranking</p>
+            To generate the data for training the grounding classifier, we first collect a few successful demonstrations from humans. We then apply synthetic perturbations to demonstration replays to generate additional successful trajectories and failing counterfactuals. Assuming an automatic reset mechanism and a labeling function that decides the trajectory execution outcome, we can collect a large dataset without humans in the loop.
+            <p></p>
         </div>
-    </div>
+        <div class="row">
+            <table class="center">
+                <tr>
+                    <td style="width: 16%; text-align: center;">
+                        <img src='figs/tracing_setup.png' width="95%">
+                        <p></p>
+                    </td>
+                    <td style="width: 42%; text-align: center;">
+                        <div style="width: 95%; margin: 0 auto;">
+                            <video src="figs/tracing_teaching_2x.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                    </td>
+                    <td style="width: 42%; text-align: center;">
+                        <div style="width: 95%; margin: 0 auto;">
+                            <video src="figs/tracing_replay_2:4x.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                    </td>
+                </tr>
+        
+                <tr>
+                    <td style="width: 16%; text-align: center;">
+                        <p style="width: 90%; margin: 0 auto;">Data Collection Setup</p>
+                    </td>
+                    <td style="width: 42%; text-align: center;">
+                        <p style="width: 70%; margin: 0 auto;">Human demonstrations: Mode 1 -> 2 -> 3 -> 4 -> 5. Invalid mode transitions: 1 -> 3 or 1 -> 4 or 1 -> 5 </p>
+                    </td>
+                    <td style="width: 42%; text-align: center;">
+                        <p style="width: 70%; margin: 0 auto;">Add synthetic perturbations to demonstration replays with auto-labeling and auto-reset</p>
+                    </td>
+                </tr>
+            </table>
+        </div><br><br> -->
 
-    <div class="video-container">
-        <div>
-            <video src="figs/exp02_dp_bi.mp4" type="video/mp4" controls="controls" class="center"></video>
-            <p class="caption">DP - Biased Initialization</p>
-        </div>
-        <div>
-            <video src="figs/exp02_dp_gd.mp4" type="video/mp4" controls="controls" class="center"></video>
-            <p class="caption">DP - Guided Diffusion</p>
-        </div>
-    </div>
+    <!-- </div><br> -->
 
-    <div class="video-container">
-        <div>
-            <video src="figs/exp02_dp_rd.mp4" type="video/mp4" controls="controls" class="center"></video>
-            <p class="caption">DP - Stochastic Sampling</p>
-        </div>
-    </div>
 
-<h2>Visualize diffusion dynamics under influence</h2>
+    <!-- Poster -->
+    <!-- <div class="container">
+        <h4 id="Related" style="padding-top: 30px; margin-top: -40px;">Related Works - Prior work that GLiDE extends by learning instead of engineering sensor models</h4>
+        <hr>
 
-<div class="video-container">
-    <div>
-        <video src="figs/exp02_dp_bi_evolution.mp4" type="video/mp4" controls="controls" class="center"></video>
-        <p class="caption">DP - Biased Initialization</p>
-    </div>
-    <div>
-        <video src="figs/exp02_dp_gd_evolution.mp4" type="video/mp4" controls="controls" class="center"></video>
-        <p class="caption">DP - Guided Diffusion</p>
-    </div>
-    <div>
-        <video src="figs/exp02_dp_rd_evolution.mp4" type="video/mp4" controls="controls" class="center"></video>
-        <p class="caption">DP - Stochastic Sampling</p>
-    </div>
-</div>
 
+        <table class="center">
+        <tr>
+            <td style="padding:20px;width:25%;vertical-align:middle">
+                <div class="one">
+                    <img src='figs/robot_1.jpg' width="100%">
+                </div>
+            </td>
+            <td style="padding:20px;width:75%;vertical-align:middle">
+                <a href="https://yanweiw.github.io/tli/">
+                    <papertitle>Temporal Logic Imitation: Learning Plan-Satisficing Motion Policies from Demonstrations
+                    </papertitle>
+                </a>
+                <br>
+                <strong>Yanwei Wang</strong>,
+                Nadia Figueroa, Shen Li, Ankit Shah, Julie Shah
+                <em><br>
+                    <a href="https://arxiv.org/abs/2206.04632">arxiv</a>
+                    /
+                    <a href="https://github.com/yanweiw/tli">code</a>
+                    /
+                    <a href="https://yanweiw.github.io/tli/">project page</a><br>
+                    <strong>CoRL 2022</strong> (<strong style="color:red;">Oral</strong>, acceptance rate: 6.5%) <br>
+                    <strong>IROS 2023 Workshop</strong> (<strong style="color:red;"> Best Student Paper</strong>, Learning Meets
+                    Model-based Methods for Manipulation and Grasping Workshop)
+                </em><br>
+                <p>We present a continuous motion imitation method that can provably satisfy any discrete plan specified by a
+                    Linear Temporal Logic (LTL) formula. Consequently, the imitator is robust to both task- and motion-level
+                    disturbances and guaranteed to achieve task success.</p>
+            </td>
+        </table>
+    </div><br><br> -->
+
+    <!-- Bootstrap core JavaScript -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js" integrity="sha384-b/U6ypiBEHpOf/4+1nzFpr53nxSS+GLCkfwBdFNTxtclqqenISfwAzpKaMNFNmj4" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous"></script>
 
 </body>
 
