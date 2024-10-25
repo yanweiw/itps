@@ -217,7 +217,7 @@
         </div>
 
         <div>
-            We consider 6 sampling strategies: Random Sampling (<strong>RS</strong>), Output Perturbation (<strong>OP</strong>), Post-Hoc Ranking (<strong>PR</strong>), Biased Initialization (<strong>BI</strong>), Guided Diffusion (<strong>GD</strong>), and Guided Stochastic Sampling (<strong>SS</strong>). <strong>RS, OP</strong> and <strong>PR</strong> are applied to the policy output and are agnostic to policy class. We experiment with two policy classes: Action Chunking Transformer (<strong>ACT</strong>) and Diffusion Policy (<strong>DP</strong>) in this work. <strong>BI, GD</strong> and <strong>SS</strong> are unique to duffusion and are applied to the noise input and diffusion process of the policy respectively. To implement conditional sampling based on user interactions, we use hand-crafted L2 distance metric to convert point and sketch inputs into inference-time cost objectives <strong>&#958;(&#183;)</strong> to compose with the frozen policy. Physical correction input overwrites the policy output and is only compatible with <strong>OP</strong>. We a maze navigation task to illustrate the six sampling strategies, where alignment is measured by the L2 distance between the user input and the policy output and task success correspond to maintaining collision-free.
+            We consider 6 sampling strategies: Random Sampling (<strong>RS</strong>), Output Perturbation (<strong>OP</strong>), Post-Hoc Ranking (<strong>PR</strong>), Biased Initialization (<strong>BI</strong>), Guided Diffusion (<strong>GD</strong>), and Guided Stochastic Sampling (<strong>SS</strong>). <strong>RS, OP</strong> and <strong>PR</strong> are applied to the policy output and are agnostic to policy class. We experiment with two policy classes: Action Chunking Transformer (<strong>ACT</strong>) and Diffusion Policy (<strong>DP</strong>) in this work. <strong>BI, GD</strong> and <strong>SS</strong> are unique to duffusion and are applied to the noise input and diffusion process of the policy respectively. To implement conditional sampling based on user interactions, we use hand-crafted L2 distance metric to convert point and sketch inputs into inference-time cost objectives <strong>&#958;(&#183;)</strong> to compose with the frozen policy. Physical correction input overwrites the policy output and is only compatible with <strong>OP</strong>. We use a maze navigation task to illustrate how the six sampling strategies balance inference-time user alignment and constraint satisfaction, where <strong>alignment</strong> is measured by the L2 distance between the user input and the policy output and <strong>constraint satisfaction</strong> corresponds to maintaining collision-free.
             <p></p>
         </div>
 
@@ -229,9 +229,17 @@
             <table class="center">
                 <tr>
                     <td style="width: 33%; text-align: center;">
-                        <img src='figs/method_op.jpg' width="50%">
+                        <img src='figs/method_op.png' width="45%">
                         <p></p>
-                        <p style="width: 90%; margin: 0 auto; text-align: justify;">User input (sketch or physical corretions) directly overwrites policy output. OP maximizes policy alignment to user input at the cost of potential distribution shift.</p>
+                        <p style="width: 90%; margin: 0 auto; text-align: justify;">User input (sketch or physical corretions) drives the agent (red) around in real-time (click-n-drag the mouse). <strong>OP</strong> maximizes policy alignment at the cost of potential distribution shift. Predictions in collision turn white. </p>
+                    </td>
+
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 95%; margin: 0 auto;">
+                            <video src="figs/act_motion_manifold.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;">Exploring the learned motion manifold of <strong>ACT</strong></p>
                     </td>
 
                     <td style="width: 33%; text-align: center;">
@@ -239,15 +247,7 @@
                             <video src="figs/dp_motion_manifold.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
                         </div>
-                        <p style=" text-align: center;">Exploring the learned motion manifold of <strong>DP</strong>, which exhibits higher degree of distribution multimodality and constraint satisfaction at OOD locations.</p>
-                    </td>
-                    <td style="width: 33%; text-align: center;">
-                        <div style="width: 95%; margin: 0 auto;">
-                            <video src="figs/act_motion_manifold.mp4" type="video/mp4" controls="controls" class="center">
-                            </video>
-                        </div>
-                        <p style=" text-align: center;">Exploring the learned motion manifold of <strong>ACT</strong> by overwriting agent
-                            positions with mouse positions. Predictions turn white when a collision occurs.</p>
+                        <p style=" text-align: center;">Exploring the learned motion manifold of <strong>DP</strong></p>
                     </td>
                 </tr>
             </table>
@@ -261,28 +261,27 @@
             <table class="center">
                 <tr>
                     <td style="width: 33%; text-align: center;">
-                        <img src='figs/method_pr.jpg' width="50%">
-                        <p></p>
-                        <p style="width: 90%; margin: 0 auto; text-align: justify;">Point or sketch input is used to rank policy outputs. PR introduces minimal distribution shift but offers limited alignment improvement if no unconditional sample is already aligned with user input.</p>
+                        <img src='figs/method_pr.png' width="45%">
+                        <p style="width: 90%; margin: 0 auto; text-align: justify;">
+                            User input (point or sketch) is used to rank policy outputs by L2 similarity. <strong>PR</strong> introduces minimal distribution shift but only improves alignment if there already exists aligned samples in the unconditional predictions.
+                    </p>
                     </td>
+
+                    <td style="width: 33%; text-align: center;">
+                        <p style="width: 85%; margin: 0 auto; text-align: justify;">
+                            As seen above, <strong>ACT</strong> does not produce a diverse set of predictions, leading to limited alignment improvement with <strong>PR</strong>. <strong>DP</strong>, however, exhibits higher degree of distribution multimodality and constraint satisfaction after being driven to OOD locations. 
+                            Hence, <strong>PR</strong> can improve alignment, but not modify unconditional samples to be more similar to user input.
+                        </p>
+                    </td>
+
                     <td style="width: 33%; text-align: center;">
                         <div style="width: 95%; margin: 0 auto;">
                             <video src="figs/maze_ph.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
                         </div>
-                        <p style=" text-align: center;"><strong>DP</strong> exhibits good multimodality, so PR can improve alignment, but
-                            only to the extent of the most aligned trajectory in the set of unconditional samples.</p>
+                        <p style=" text-align: center;"><strong>PR</strong> selects the best <strong>DP</strong> output based on sketch</p>
                         </p>
                     </td>
-                    <td style="width: 33%; text-align: center;">
-                        <!-- <div style="width: 95%; margin: 0 auto;">
-                            <video src="figs/act_motion_manifold.mp4" type="video/mp4" controls="controls" class="center">
-                            </video>
-                        </div> -->
-                        <p style=" text-align: center;"><strong>ACT</strong> Do not produce a diverse set of predictions, leading to limited alignment improvement with PR.</p>
-                        </p>
-                    </td>
-
                 </tr>
             </table>
         </div>
@@ -296,19 +295,22 @@
             <table class="center">
                 <tr>
                     <td style="width: 33%; text-align: center;">
-                        <img src='figs/method_bi.jpg' width="40%">
+                        <img src='figs/method_bi.png' width="45%">
                         <p></p>
                     </td>
+
+                    <td style="width: 33%; text-align: center;">
+                        <p style="width: 85%; margin: 0 auto; text-align: justify;">
+                            User input (point or sketch) is used to initialize the initial noise distribution (instead of Guassian) for a <strong>DP</strong>. Similar to <strong>PR</strong>, <strong>BI</strong> offers user limited control as the diffusion sampling process is still unconditional. 
+                        </p>
+                    </td>
+
                     <td style="width: 33%; text-align: center;">
                         <div style="width: 95%; margin: 0 auto;">
                             <video src="figs/maze_bi.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
                         </div>
-                        <p style=" text-align: center;"><strong>DP</strong> can leverage BI to bias the initial noise distribution to improve alignment. 
-                        </p>
-                    </td>
-                    <td style="width: 33%; text-align: center;">
-                        <p style=" text-align: center;">However, similar to PR, BI offers user limited control as the diffusion sampling procedure is still unconditional. 
+                        <p style=" text-align: center;"><strong>BI</strong> biases the noise distribution input of <strong>DP</strong>
                         </p>
                     </td>
                 </tr>
@@ -323,19 +325,22 @@
             <table class="center">
                 <tr>
                     <td style="width: 33%; text-align: center;">
-                        <img src='figs/method_gd.jpg' width="40%">
+                        <img src='figs/method_gd.png' width="45%">
                         <p></p>
                     </td>
+
+                    <td style="width: 33%; text-align: center;">
+                        <p style="width: 85%; margin: 0 auto; text-align: justify;">
+                            User input (point or sketch) is used to guide the diffusion process with gradients of L2 similarity between the user input and the policy output. Different from <strong>PR</strong> and <strong>BI</strong>, <strong>GD</strong> can discover new trajectories close to user input that do not necessarily live on the original motion manifold (see stacking experiments). Hence, there is no guarantee that the execution will still staisfy the original constraints and be successful eventually.
+                        </p>
+                    </td>
+
                     <td style="width: 33%; text-align: center;">
                         <div style="width: 95%; margin: 0 auto;">
                             <video src="figs/maze_gd.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
                         </div>
-                        <p style=" text-align: center;"><strong>DP</strong> augmented with classifier guidance can improve alignment but introduces distribution shift.
-                        </p>
-                    </td>
-                    <td style="width: 33%; text-align: center;">
-                        <p style=" text-align: center;">Different from PR and BI, GD can discover new trajectories close to user input that do not necessarily live on the original motion manifold. Hence, there is no guarantee that the execution will staisfy the original constraints and be successful eventually.
+                        <p style=" text-align: center;"><strong>GD</strong> guides sampling with gradients of L2 similarity
                         </p>
                     </td>
                 </tr>
@@ -350,19 +355,22 @@
             <table class="center">
                 <tr>
                     <td style="width: 33%; text-align: center;">
-                        <img src='figs/method_rd.jpg' width="40%">
+                        <img src='figs/method_rd.png' width="55%">
                         <p></p>
                     </td>
+
+                    <td style="width: 33%; text-align: center;">
+                        <p style="width: 85%; margin: 0 auto; text-align: justify;">
+                            <strong>SS</strong> is an improved version of <strong>GD</strong> that can generate trajectories closer to user input while maintaining the original motion constraints. Repeating each guided diffusion step M steps by adding back noise in a MCMC style effectively samples the correct gradients (direct adding denoising and alignment gradients in <strong>GD</strong> is in fact mathematically incorrect) of the composed distribution (original policy distribution composed with inference-time user objectives). 
+                        </p>
+                    </td>
+
                     <td style="width: 33%; text-align: center;">
                         <div style="width: 95%; margin: 0 auto;">
                             <video src="figs/maze_rd.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
                         </div>
-                        <p style=" text-align: center;"><strong>DP</strong> with guided stochastic sampling achieves the best alignment and distribution shift trade-off.
-                        </p>
-                    </td>
-                    <td style="width: 33%; text-align: center;">
-                        <p style=" text-align: center;">Guided Stochastic Sampling is an improved version of GD that can generate trajectories close to user input while maintaining the original motion constraints.
+                        <p style=" text-align: center;"><strong>SS</strong> achieves the best alignment-constraint satisfaction trade-off.
                         </p>
                     </td>
                 </tr>
