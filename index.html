@@ -29,7 +29,24 @@
         .transparent-image {
             opacity: 0.7; /* Set opacity to 50% */
         }
+
     </style>
+    
+    <!-- for carousel of results to work -->
+    <link rel="stylesheet" href="./static/css/bulma.min.css">
+    <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+    <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+    <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+    <link rel="stylesheet" href="./static/css/index.css">
+    <!-- <link rel="icon" href="./static/images/favicon.svg"> -->
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script defer src="./static/js/fontawesome.all.min.js"></script>
+    <script src="./static/js/bulma-carousel.min.js"></script>
+    <script src="./static/js/bulma-slider.min.js"></script>
+    <script src="./static/js/index.js"></script>
+
 </head>
 
 <head>
@@ -92,9 +109,9 @@
                 <li class="nav-item">
                     <a class="nav-link" href="#Method">Method</a>
                 </li>
-                <!-- <li class="nav-item">
+                <li class="nav-item">
                     <a class="nav-link" href="#Experiments">Experiments</a>
-                </li> -->
+                </li>
                 <!-- <li class="nav-item">
 
                     <a class="nav-link" href="#Related">Related Works</a>
@@ -231,7 +248,7 @@
                     <td style="width: 33%; text-align: center;">
                         <img src='figs/method_op.png' width="45%">
                         <p></p>
-                        <p style="width: 90%; margin: 0 auto; text-align: justify;">User input (sketch or physical corretions) drives the agent (red) around in real-time (click-n-drag the mouse). <strong>OP</strong> maximizes policy alignment at the cost of potential distribution shift. Predictions in collision turn white. </p>
+                        <p style="width: 90%; margin: 0 auto; text-align: justify;">User input (sketch or physical corretions) overwrites the agent (red) states in real-time (click-n-drag the mouse). <strong>OP</strong> maximizes policy alignment at the cost of potential distribution shift. Predictions in collision turn white. </p>
                     </td>
 
                     <td style="width: 33%; text-align: center;">
@@ -239,7 +256,7 @@
                             <video src="figs/act_motion_manifold.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
                         </div>
-                        <p style=" text-align: center;">Exploring the learned motion manifold of <strong>ACT</strong></p>
+                        <p style=" text-align: center;">Exploring the learned motion manifold of <strong>ACT</strong> (execute user inputs and visualize policy predictions)</p>
                     </td>
 
                     <td style="width: 33%; text-align: center;">
@@ -247,7 +264,7 @@
                             <video src="figs/dp_motion_manifold.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
                         </div>
-                        <p style=" text-align: center;">Exploring the learned motion manifold of <strong>DP</strong></p>
+                        <p style=" text-align: center;">Exploring the learned motion manifold of <strong>DP</strong> (execute user inputs and visualize policy predictions)</p>
                     </td>
                 </tr>
             </table>
@@ -376,243 +393,152 @@
                 </tr>
             </table>
         </div>
+    </div><br><br>
 
-    <!-- <div class="container">
+
+    <div class="container">
         <h4 id="Experiments" style="padding-top: 30px; margin-top: -40px;">Experiments</h4>
         <hr>
-
-        <div style='text-align: justify; width: 90%; font-size: 15pt; color:#A31F34'>
-            Learned Mode Partitions of Configuration Space for 2D Navigation Tasks
-            <p></p>
-        </div>
-        <div>
-            The navigation domain serves as a 2D abstraction of the modal structure for multi-step manipulation tasks, where
-            each polygon represents a different mode with its boundary showing the constraint. The goal is to traverse through
-            the sequence consecutively as demonstrated until reaching the last colored polygon (e.g. mode 1 -> 2 -> 3 -> 4 -> 5). Mode transitions violating the demonstrated temporal ordering will lead to task failure (e.g. mode 1 -> 3/4/5).
-            <p></p>
-        </div>
-
-        <div class="row">
-            <table class="center">
-                <tr>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_3a.png' width="90%">
-                        <p></p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_3b_new.png' width="90%">
-                        <p></p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_3c.png' width="90%">
-                        <p></p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_3d.png' width="90%">
-                        <p></p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_3e.png' width="90%" class="transparent-image">
-                        <p></p>
-                    </td>
-                </tr>
-    
-                <tr> 
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_4a.png' width="90%">
-                        <p></p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_4b_new.png' width="90%">
-                        <p></p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_4c.png' width="90%">
-                        <p></p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_4d.png' width="90%">
-                        <p></p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_4e.png' width="90%" class="transparent-image">
-                        <p></p>
-                    </td>
-                </tr>
-                
-                <tr>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_5a.png' width="90%">
-                        <p></p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_5b_new.png' width="90%">
-                        <p></p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_5c.png' width="90%">
-                        <p></p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_5d.png' width="90%">
-                        <p></p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <img src='figs/polygon_5e.png' width="90%" class="transparent-image">
-                        <p></p>
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="width: 20%; text-align: center;">
-                        <p style="width: 90%; margin: 0 auto;">(a) Demonstrations and ground truth modes</p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <p style="width: 90%; margin: 0 auto;">(b) Grounding learned by GLiDE</p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <p style="width: 90%; margin: 0 auto;">(c) GLiDE without counterfactual data</p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <p style="width: 90%; margin: 0 auto;">(d) GLiDE with incorrect number of modes</p>
-                    </td>
-                    <td style="width: 20%; text-align: center;">
-                        <p style="width: 90%; margin: 0 auto;">(e) Baseline: similarity-based clustering</p>
-                    </td>
-                </tr>
-            </table>
-        </div><br><br>
-
-
-        <div style='text-align: justify; width: 90%; font-size: 15pt; color:#A31F34'>
-            Learned Mode Partitions Explain Why Some Perturbed Trajectories Succeed While Others Fail
-            <p></p>
-        </div>
-        <div>
-            Learned classifier explains success trajectories by checking if all transitions incur 0 cost (shown by the whiteness of dots). It also explains failure trajectories by checking if there exists at least one invalid transition (indicated by the blackness of dots).
-            <p></p>
-        </div>
-        <div class="row">
-            <table class="center">            
-                <tr>
-                    <td style="width: 25%; text-align: center;">
-                        <img src='figs/polygon_succ_1.png' width="80%">
-                        <p></p>
-                    </td>
-                    <td style="width: 25%; text-align: center;">
-                        <img src='figs/polygon_succ_2.png' width="80%">
-                        <p></p>
-                    </td>
-
-                    <td style="width: 25%; text-align: center;">
-                        <img src='figs/polygon_fail_1.png' width="80%">
-                        <p></p>
-                    </td>
-                    <td style="width: 25%; text-align: center;">
-                        <img src='figs/polygon_fail_2.png' width="80%">
-                        <p></p>
-                    </td>
-                </tr>
-                
-                <tr>
-                    <td style="width: 25%; text-align: center;">
-                        <p style="width: 80%; margin: 0 auto;">Successful Execution 1</p>
-                    </td>
-                    <td style="width: 25%; text-align: center;">
-                        <p style="width: 80%; margin: 0 auto;">Successful Execution 2</p>
-                    </td>
-
-                    <td style="width: 25%; text-align: center;">
-                        <p style="width: 80%; margin: 0 auto;">Failing Counterfactual 1</p>
-                    </td>
-                    <td style="width: 25%; text-align: center;">
-                        <p style="width: 80%; margin: 0 auto;">Failing Counterfactual 2</p>
-                    </td>
-                </tr>
-            </table>
-        </div><br><br>
-            
-        <div style='text-align: justify; width: 90%; font-size: 15pt; color:#A31F34'>
-            Learned Mode Partitions Allow Planning Reactive Behavior for 2D Navigation Tasks
-            <p></p>
-        </div>
-        <div>
-            The learned grounding classifier can be used to segment whole demonstrations into sub-sequences for each mode, for which we extract the sub-goal (the average crossing point at each boundary) for each mode. Additionally, the explicit mode partitions allow us construct a potential flow controller for each mode that directs the system to reach each sub-goal without leaving the current mode prematurely. Should the execution be derailed by external perturbations, planning without and with the learned mode boundaries can lead to execution failures (left) or successes (right), respectively.
-            <p></p>
-        </div>
-        <div class="row">
-            <table class="center">
-                <tr>
-                    <td style="width: 50%; text-align: center;">
-                        <div style="width: 70%; margin: 0 auto;">
-                            <video src="figs/polygon_no_replanning.mp4" type="video/mp4" controls="controls" class="center">
-                            </video>
-                        </div>
-                    </td>
-                    <td style="width: 50%; text-align: center;">
-                        <div style="width: 70%; margin: 0 auto;">
-                            <video src="figs/polygon_replanning.mp4" type="video/mp4" controls="controls" class="center">
-                            </video>
-                        </div>
-                    </td>
-                </tr>
-
-                <tr>
-                    <td style="width: 50%; text-align: center;">
-                        <p style="width: 70%; margin: 0 auto;">Planning without learned grounding leads to failures due to invalid mode transitions</p>
-                    </td>
-
-                    <td style="width: 50%; text-align: center;">
-                        <p style="width: 70%; margin: 0 auto;">Planning with learned grounding leads to successful recovery that obeys mode constraints</p>
-                    </td>
-                </tr>
-            </table>
-        </div><br><br>
-
-        <div style='text-align: justify; font-size: 15pt; color:#A31F34'>
-            Self-Supervised Data Collection for 2D Navigation Tasks
-            <p></p>
-        </div>
-        <div>
-            To generate the data for training the grounding classifier, we first collect a few successful demonstrations from humans. We then apply synthetic perturbations to demonstration replays to generate additional successful trajectories and failing counterfactuals. Assuming an automatic reset mechanism and a labeling function that decides the trajectory execution outcome, we can collect a large dataset without humans in the loop.
-            <p></p>
-        </div>
-        <div class="row">
-            <table class="center">
-                <tr>
-                    <td style="width: 16%; text-align: center;">
-                        <img src='figs/tracing_setup.png' width="95%">
-                        <p></p>
-                    </td>
-                    <td style="width: 42%; text-align: center;">
-                        <div style="width: 95%; margin: 0 auto;">
-                            <video src="figs/tracing_teaching_2x.mp4" type="video/mp4" controls="controls" class="center">
-                            </video>
-                        </div>
-                    </td>
-                    <td style="width: 42%; text-align: center;">
-                        <div style="width: 95%; margin: 0 auto;">
-                            <video src="figs/tracing_replay_2:4x.mp4" type="video/mp4" controls="controls" class="center">
-                            </video>
-                        </div>
-                    </td>
-                </tr>
         
+        <div style='text-align: justify; width: 90%; font-size: 15pt; color:#A31F34'>
+            Maze2D Navigation Task - Continuous Motion Alignment
+            <p></p>
+        </div>
+        <div>
+            Qualitative results of benchmarking six steering strategies with two pre-trained policies on a 2D maze navigation task. <strong>The central challenge of inference-time policy steering</strong> is to trade off between alignment with user input and staying in distribution of the pre-trained policy to maintain constraint satisfaction. We show <strong>SS</strong> is the best at producing aligned success.
+            <p></p>
+        </div>
+
+        <!-- <div class="hero-body"> -->
+            <div class="container" style="width: 100%; margin: 0 auto;">
+                <div id="results-carousel" class="carousel results-carousel" style="width: 100%; margin: 0 auto;">
+                    <div class="item item-steve">
+                        <img src="figs/maze_quantitative.jpg" alt="exp02_act_op" style="width: auto;">
+                    </div>
+                    <div class="item item-steve">
+                        <img src="figs/maze_collision_heatmap.jpg" alt="exp02_act_op" style="width: auto;">
+                    </div>
+                    <div class="item item-steve">
+                        <img src="figs/maze_method_comp_1.jpg" alt="exp02_act_op" style="width: auto;">
+                    </div>
+                    <div class="item item-steve">
+
+                        <img src="figs/maze_method_comp_2.jpg" alt="exp02_act_ph" style="width: auto;">
+                    </div>
+                    <div class="item item-steve">
+                        <img src="figs/maze_method_comp_3.jpg" alt="exp02_dp_bi" style="width: auto;">
+                    </div>
+                </div>
+            </div><br>
+        <!-- </div> -->
+
+        <div class="row">
+            <table class="center">
                 <tr>
-                    <td style="width: 16%; text-align: center;">
-                        <p style="width: 90%; margin: 0 auto;">Data Collection Setup</p>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 90%; margin: 0 auto;">
+                            <video src="figs/exp02_dp_bi_evolution.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;">Denoising Evolution under <strong>BI</strong></p>
                     </td>
-                    <td style="width: 42%; text-align: center;">
-                        <p style="width: 70%; margin: 0 auto;">Human demonstrations: Mode 1 -> 2 -> 3 -> 4 -> 5. Invalid mode transitions: 1 -> 3 or 1 -> 4 or 1 -> 5 </p>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 90%; margin: 0 auto;">
+                            <video src="figs/exp02_dp_gd_evolution.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;">Denoising Evolution under <strong>GD</strong></p>
                     </td>
-                    <td style="width: 42%; text-align: center;">
-                        <p style="width: 70%; margin: 0 auto;">Add synthetic perturbations to demonstration replays with auto-labeling and auto-reset</p>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 90%; margin: 0 auto;">
+                            <video src="figs/exp02_dp_rd_evolution.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;">Denoising Evolution under <strong>SS</strong></p>
                     </td>
                 </tr>
             </table>
-        </div><br><br> -->
+        </div><br>
 
-    <!-- </div><br> -->
+        <div style='text-align: justify; width: 90%; font-size: 15pt; color:#A31F34'>
+            Block Stacking Task - Discrete Ordering Alignment
+            <p></p>
+        </div>
+        <div>
+            Given a pre-trained block stacking DP policy that randomly picks a block and place it on another random block until a tower is built, we show a user can guide the policy with sketches to build a specific tower in a particular order (alignment) without exacerbating covriate shift (failed grasps or placement). We show <strong>SS</strong> strategy below where 2D sketches are projected to the Y-Z plane through the end-effector to compute the L2 similarity metric. One can also use VR controllers to draw 3D sketches to guide the policy as shown in the paper. 
+            <p></p>
+        </div>
+        <div align="center">
+            <video src="figs/block_interact.mp4" type="video/mp4" controls="controls" class="center">
+            </video>
+        </div><br>
+
+        <div>
+            To highlight the difference between <strong>PR</strong> and <strong>SS</strong>, we show <strong>PR</strong> cannot only improve alignment unless the policy predictions already contain user-aligned trajectories, while <strong>SS</strong> can generate novel plans with user-defined shapes even if they are missing from the initial samples. Additionally, we show one can choose whether to sample plans closer to user input or policy training distribution by addjusting the number of diffusion steps that are guided by user input.
+        </div><br>
+        <div class="row">
+            <table class="center">
+                <tr>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 90%; margin: 0 auto;">
+                            <video src="figs/block_pr.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                            <p style=" text-align: center;"><strong>PR</strong> cannot generate user-aligned plans if they are missing from initial samples </p>
+
+                        </div>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 90%; margin: 0 auto;">
+                            <video src="figs/block_ss_all.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                            <p style=" text-align: center;"><strong>SS</strong> generates OOD plans close to user input if alignment gradients are added to all diffusion steps</p>
+                        </div>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 90%; margin: 0 auto;">
+                            <video src="figs/block_ss_early_stop.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                            <p style=" text-align: center;"><strong>SS</strong> generates plans closer to training distribution if alignment gradients are only added to early diffusion steps</p>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div><br>
+
+        <div style='text-align: justify; width: 90%; font-size: 15pt; color:#A31F34'>
+            PushT Task - Composing Multiple Inference-Time Objectives
+            <p></p>
+        </div>
+        <div>
+            To illustrate our framework's flexibility to compose multiple inference-time objectives, we show a user can use both positive sketches as preferences and negative sketches as collision constraints to shape the policy output. We take pretrained pushT policies and real-time interative version of pushT from this <a href="https://github.com/alexander-soare/little_experiments/blob/main/action_multimodality.md">LeRobot branch</a> and use gray lines to represent positive sketches that bias sampling towards them and black lines to represent negative sketchs that bias sampling away from them. Note the original pushT domain does not have constraints and the policy is trained to push the block to the goal location.
+        </div><br>
+        <div class="row">
+            <table class="center">
+                <tr>
+                    <td style="width: 50%; text-align: center;">
+                        <div style="width: 95%; margin: 0 auto;">
+                            <video src="figs/pusht_compose_1.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                            <p style=" text-align: center;">Exploring pre-trained <strong>DP</strong> and <strong>ACT</strong> by visualizing predictions at mouse positions
+                            </p>
+                        </div>
+                    </td>
+                    <td style="width: 50%; text-align: center;">
+                        <div style="width: 95%; margin: 0 auto;">
+                            <video src="figs/pusht_compose_2.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                            <p style=" text-align: center;">
+                                Compositing positive (gray line) and negative (black line) sketches to shape policy output
+                            </p>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div><br>
+
+    </div><br>
+
+
 
 
     <!-- Poster -->
