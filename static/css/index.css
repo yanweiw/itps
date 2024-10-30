@@ -159,3 +159,8 @@ body {
 #interpolation-image-wrapper img {
   border-radius: 5px;
 }
+
+strong {
+  color: #0a0a0a;
+  /* Replace with desired color */
+}
