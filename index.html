@@ -77,7 +77,7 @@
 <body>
     <!-- <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark"> -->
     <nav class="navbar navbar-expand-md fixed-top navbar-dark" style="background-color: #A31F34;">
-        <a class="navbar-brand" href="#">Steering Pre-Trained Policy with Inference-Time User Input</a>
+        <a class="navbar-brand" href="#">Steering Pre-Trained Diffusion Policy with Inference-Time User Input</a>
 
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarToggle">
 
@@ -371,7 +371,7 @@
 
                     <td style="width: 33%; text-align: center;">
                         <p style="width: 85%; margin: 0 auto; text-align: justify;">
-                            <strong>SS</strong> is an improved version of <strong>GD</strong> that can generate trajectories closer to user input while maintaining the original motion constraints. Repeating each guided diffusion step M steps by adding back noise in a MCMC style effectively samples the correct gradients (direct adding denoising and alignment gradients in <strong>GD</strong> is in fact mathematically incorrect) of the composed distribution (original policy distribution composed with inference-time user objectives). 
+                            <strong>SS</strong> is an improved version of <strong>GD</strong> that can generate trajectories closer to user input while maintaining the original motion constraints. Repeating each guided diffusion step M steps by adding back noise in a MCMC style effectively samples the correct gradients (direct adding denoising and alignment gradients in <strong>GD</strong> is in fact <a href="https://arxiv.org/abs/2302.11552">mathematically incorrect</a>) of the composed distribution (original policy distribution composed with inference-time user objectives). 
                         </p>
                     </td>
 
@@ -386,6 +386,56 @@
                 </tr>
             </table>
         </div>
+
+        <div style="text-align: justify; width: 100%; font-size: 15pt; color:#A31F34">
+            Guided Diffusion vs. Stochastic Sampling
+            <p></p>
+        </div>
+        <div class="row">
+            <table class="center">
+                <tr>
+                    <td style="width: 35%; text-align: center;">
+                        <p style="width: 90%; margin: 0 auto; text-align: justify;">
+                            <br>
+                            Consider the toy example of composing a pre-trained policy distribution with an inference-time point input. The goal is to sample an in-distribution (highly likely) data point with respect to the pre-trained distribution while maximizing alignment with the constructed point objective distribution. <strong>GD</strong> approximately samples from the sum distribution, which can result in OOD samples that violate likelihood constraints learned by the pre-trained distribution. In contrast, <strong>SS</strong> approximately samples from the product distribution via <a href="https://arxiv.org/abs/2302.11552">Annealed MCMC</a>. See below for videos of Langevin sampling with combined denoising and alignment gradients in <strong>GD</strong> and <strong>SS</strong>.
+                        </p>
+                    </td>
+                    <td style="width: 65%; text-align: center;">
+                        <img src='figs/gd_vs_ss.png' width="90%">
+                        <p></p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="row">
+            <table class="center">
+                <tr>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 90%; margin: 0 auto;">
+                            <video src="figs/langevin_prior.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;"> Unconditional sampling a pre-trained distribution</p>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 90%; margin: 0 auto;">
+                            <video src="figs/langevin_gd.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;">Conditional sampling with <strong>GD</strong></p>
+                    </td>
+                    <td style="width: 33%; text-align: center;">
+                        <div style="width: 90%; margin: 0 auto;">
+                            <video src="figs/langevin_ss.mp4" type="video/mp4" controls="controls" class="center">
+                            </video>
+                        </div>
+                        <p style=" text-align: center;">Conditional sampling with <strong>SS</strong></p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
     </div><br><br>
 
 
@@ -433,21 +483,21 @@
                             <video src="figs/exp02_dp_bi_evolution.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
                         </div>
-                        <p style=" text-align: center;">Denoising Evolution under <strong>BI</strong></p>
+                        <p style=" text-align: center;">Denoising evolution under <strong>BI</strong></p>
                     </td>
                     <td style="width: 33%; text-align: center;">
                         <div style="width: 90%; margin: 0 auto;">
                             <video src="figs/exp02_dp_gd_evolution.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
                         </div>
-                        <p style=" text-align: center;">Denoising Evolution under <strong>GD</strong></p>
+                        <p style=" text-align: center;">Denoising evolution under <strong>GD</strong></p>
                     </td>
                     <td style="width: 33%; text-align: center;">
                         <div style="width: 90%; margin: 0 auto;">
                             <video src="figs/exp02_dp_rd_evolution.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
                         </div>
-                        <p style=" text-align: center;">Denoising Evolution under <strong>SS</strong></p>
+                        <p style=" text-align: center;">Denoising evolution under <strong>SS</strong></p>
                     </td>
                 </tr>
             </table>
