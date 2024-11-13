@@ -165,7 +165,7 @@
         ability to steer pre-trained policy output towards a specific subgoal or trajectory shape among a set of multimodal
         predictions. Naive approaches to human intervention might inadvertently exacerbate covariate shifts, leading to
         downstream constraint violation or execution failures. To improve the alignment of policy output and human intent
-        without causing out-of-distribution mistakes, we propose a Inference-Time Policy Steering (ITPS) framework that uses
+        without causing out-of-distribution mistakes, we propose an Inference-Time Policy Steering (ITPS) framework that uses
         human interactions to bias the generative sampling process instead of fine-tuning the policy on interaction data. We
         experiment with 3 simulations and real-world benchmarks to test 3 forms of human interactions and their associated
         alignment distance metric. Out of the 6 sampling strategies we evaluate, our proposed stochastic sampling method
@@ -227,7 +227,7 @@
         </div>
 
         <div>
-            We consider 6 sampling strategies: Random Sampling (<strong>RS</strong>), Output Perturbation (<strong>OP</strong>), Post-Hoc Ranking (<strong>PR</strong>), Biased Initialization (<strong>BI</strong>), Guided Diffusion (<strong>GD</strong>), and Guided Stochastic Sampling (<strong>SS</strong>). <strong>RS, OP</strong> and <strong>PR</strong> are applied to the policy output and are agnostic to policy class. We experiment with two policy classes: Action Chunking Transformer (<strong>ACT</strong>) and Diffusion Policy (<strong>DP</strong>) in this work. <strong>BI, GD</strong> and <strong>SS</strong> are unique to duffusion and are applied to the noise input and diffusion process of the policy respectively. To implement conditional sampling based on user interactions, we use hand-crafted L2 distance metric to convert point and sketch inputs into inference-time cost objectives <strong>&#958;(&#183;)</strong> to compose with the frozen policy. Physical correction input overwrites the policy output and is only compatible with <strong>OP</strong>. We use a maze navigation task to illustrate how the six sampling strategies balance inference-time user alignment and constraint satisfaction, where <strong>alignment</strong> is measured by the L2 distance between the user input and the policy output and <strong>constraint satisfaction</strong> corresponds to maintaining collision-free.
+            We consider 6 sampling strategies: Random Sampling (<strong>RS</strong>), Output Perturbation (<strong>OP</strong>), Post-Hoc Ranking (<strong>PR</strong>), Biased Initialization (<strong>BI</strong>), Guided Diffusion (<strong>GD</strong>), and Guided Stochastic Sampling (<strong>SS</strong>). <strong>RS, OP</strong> and <strong>PR</strong> are applied to the policy output and are agnostic to policy class. We experiment with two policy classes: Action Chunking Transformer (<strong>ACT</strong>) and Diffusion Policy (<strong>DP</strong>) in this work. <strong>BI, GD</strong> and <strong>SS</strong> are unique to diffusion and are applied to the noise input and diffusion process of the policy respectively. To implement conditional sampling based on user interactions, we use hand-crafted L2 distance metric to convert point and sketch inputs into inference-time cost objectives <strong>&#958;(&#183;)</strong> to compose with the frozen policy. Physical correction input overwrites the policy output and is only compatible with <strong>OP</strong>. We use a maze navigation task to illustrate how the six sampling strategies balance inference-time user alignment and constraint satisfaction, where <strong>alignment</strong> is measured by the L2 distance between the user input and the policy output and <strong>constraint satisfaction</strong> corresponds to maintaining collision-free.
             <p></p>
         </div>
 
@@ -241,7 +241,7 @@
                     <td style="width: 33%; text-align: center;">
                         <img src='figs/method_op.png' width="45%">
                         <p></p>
-                        <p style="width: 90%; margin: 0 auto; text-align: justify;">User input (sketch or physical corretions) overwrites the agent (red) states in real-time (click-n-drag the mouse). <strong>OP</strong> maximizes policy alignment at the cost of potential distribution shift. Predictions in collision turn white. </p>
+                        <p style="width: 90%; margin: 0 auto; text-align: justify;">User input (sketch or physical correction) overwrites the agent (red) states in real-time (click-n-drag the mouse). <strong>OP</strong> maximizes policy alignment at the cost of potential distribution shift. Predictions in collision turn white. </p>
                     </td>
 
                     <td style="width: 33%; text-align: center;">
@@ -311,7 +311,7 @@
 
                     <td style="width: 33%; text-align: center;">
                         <p style="width: 85%; margin: 0 auto; text-align: justify;">
-                            User input (point or sketch) is used to initialize the initial noise distribution (instead of Guassian) for a <strong>DP</strong>. Similar to <strong>PR</strong>, <strong>BI</strong> offers user limited control as the diffusion sampling process is still unconditional. 
+                            User input (point or sketch) is used to initialize the initial noise distribution (instead of Gaussian) for a <strong>DP</strong>. Similar to <strong>PR</strong>, <strong>BI</strong> offers user limited control as the diffusion sampling process is still unconditional. 
                         </p>
                     </td>
 
@@ -341,7 +341,7 @@
 
                     <td style="width: 33%; text-align: center;">
                         <p style="width: 85%; margin: 0 auto; text-align: justify;">
-                            User input (point or sketch) is used to guide the diffusion process with gradients of L2 similarity between the user input and the policy output. Different from <strong>PR</strong> and <strong>BI</strong>, <strong>GD</strong> can discover new trajectories close to user input that do not necessarily live on the original motion manifold (see stacking experiments). Hence, there is no guarantee that the execution will still staisfy the original constraints and be successful eventually.
+                            User input (point or sketch) is used to guide the diffusion process with gradients of L2 similarity between the user input and the policy output. Different from <strong>PR</strong> and <strong>BI</strong>, <strong>GD</strong> can discover new trajectories close to user input that do not necessarily live on the original motion manifold (see stacking experiments). Hence, there is no guarantee that the execution will still satisfy the original constraints and be successful eventually. In fact, sampling with weighted sum of denoising and alignment gradients can lead to OOD samples because it is equivalent to sampling from an unnormalized sum of policy distribution and objective distribution.
                         </p>
                     </td>
 
@@ -371,7 +371,7 @@
 
                     <td style="width: 33%; text-align: center;">
                         <p style="width: 85%; margin: 0 auto; text-align: justify;">
-                            <strong>SS</strong> is an improved version of <strong>GD</strong> that can generate trajectories closer to user input while maintaining the original motion constraints. Repeating each guided diffusion step M steps by adding back noise in a MCMC style effectively samples the correct gradients (direct adding denoising and alignment gradients in <strong>GD</strong> is in fact <a href="https://arxiv.org/abs/2302.11552">mathematically incorrect</a>) of the composed distribution (original policy distribution composed with inference-time user objectives). 
+                            <strong>SS</strong> is an improved version of <strong>GD</strong> that can generate trajectories closer to user input while maintaining the original motion constraints. Since a step of diffusion reverse sampling step at the same fixed noise level (from timestep t to timestep t) is <a href="https://arxiv.org/abs/2302.11552">equivalent to ULA MCMC sampling</a> at the same fixed noise level, we can still approximately sample from the product distribution of the policy and the user input with a weighted sum of denoising and alignment gradients by repeating each guided diffusion step M steps in an annealed MCMC fashion.
                         </p>
                     </td>
 
@@ -397,7 +397,7 @@
                     <td style="width: 35%; text-align: center;">
                         <p style="width: 90%; margin: 0 auto; text-align: justify;">
                             <br>
-                            Consider the toy example of composing a pre-trained policy distribution with an inference-time point input. The goal is to sample an in-distribution (highly likely) data point with respect to the pre-trained distribution while maximizing alignment with the constructed point objective distribution. <strong>GD</strong> approximately samples from the sum distribution, which can result in OOD samples that violate likelihood constraints learned by the pre-trained distribution. In contrast, <strong>SS</strong> approximately samples from the product distribution via <a href="https://arxiv.org/abs/2302.11552">Annealed MCMC</a>. See below for videos of Langevin sampling with combined denoising and alignment gradients in <strong>GD</strong> and <strong>SS</strong>.
+                            Consider the toy example of composing a pre-trained policy distribution with an inference-time point input. The goal is to sample highly likely data point in the pre-trained distribution while maximizing alignment with the constructed point objective. Since we cannot directly sample from the composed distribution, we can perform MCMC using Langevin dynamics. The sampling process corresponds to a random walk guided by the weighted sum of denoising and alignment gradients. When it converges, we can estimate the probability distribution (shown by contour lines) we are effectively sampling from using all the samples collected. As shown on the right, <strong>GD</strong> approximately samples from an unnormalized sum distribution, which can result in OOD samples that violate likelihood constraints learned by the pre-trained distribution. In contrast, <strong>SS</strong> approximately samples from the product distribution via <a href="https://arxiv.org/abs/2302.11552">Annealed MCMC</a>. See below for videos of Langevin dynamics with combined denoising and alignment gradients in <strong>GD</strong> and <strong>SS</strong>.
                         </p>
                     </td>
                     <td style="width: 65%; text-align: center;">
@@ -415,22 +415,24 @@
                         <div style="width: 90%; margin: 0 auto;">
                             <video src="figs/langevin_prior.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
+                            <p style=" text-align: center;"> Unconditional MCMC sampling from a pre-trained distribution with Langevin dynamics</p>
                         </div>
-                        <p style=" text-align: center;"> Unconditional sampling a pre-trained distribution</p>
                     </td>
                     <td style="width: 33%; text-align: center;">
                         <div style="width: 90%; margin: 0 auto;">
                             <video src="figs/langevin_gd.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
+                            <p style=" text-align: center;">Conditional <strong>GD</strong> sampling with weighted sum of denoising and alignment
+                            gradients</p>
                         </div>
-                        <p style=" text-align: center;">Conditional sampling with <strong>GD</strong></p>
                     </td>
                     <td style="width: 33%; text-align: center;">
                         <div style="width: 90%; margin: 0 auto;">
                             <video src="figs/langevin_ss.mp4" type="video/mp4" controls="controls" class="center">
                             </video>
+                            <p style=" text-align: center;">Conditional <strong>SS</strong> sampling with weighted sum of denoising and alignment
+                            gradients</p>
                         </div>
-                        <p style=" text-align: center;">Conditional sampling with <strong>SS</strong></p>
                     </td>
                 </tr>
             </table>
@@ -508,7 +510,7 @@
             <p></p>
         </div>
         <div>
-            Given a pre-trained block stacking DP policy that randomly picks a block and place it on another random block until a tower is built, we show a user can guide the policy with sketches to build a specific tower in a particular order (alignment) without exacerbating covriate shift (failed grasps or placement). We show <strong>SS</strong> strategy below where 2D sketches are projected to the Y-Z plane through the end-effector to compute the L2 similarity metric. One can also use VR controllers to draw 3D sketches to guide the policy as shown in the paper. 
+            Given a pre-trained block stacking DP policy that randomly picks a block and place it on another random block until a tower is built, we show a user can guide the policy with sketches to build a specific tower in a particular order (alignment) without exacerbating covariate shift (failed grasps or placement). We show <strong>SS</strong> strategy below where 2D sketches are projected to the Y-Z plane through the end-effector to compute the L2 similarity metric. One can also use VR controllers to draw 3D sketches to guide the policy as shown in the paper. 
             <p></p>
         </div>
         <div align="center">
@@ -517,7 +519,7 @@
         </div><br>
 
         <div>
-            To highlight the difference between <strong>PR</strong> and <strong>SS</strong>, we show <strong>PR</strong> cannot only improve alignment unless the policy predictions already contain user-aligned trajectories, while <strong>SS</strong> can generate novel plans with user-defined shapes even if they are missing from the initial samples. Additionally, we show one can choose whether to sample plans closer to user input or policy training distribution by addjusting the number of diffusion steps that are guided by user input.
+            To highlight the difference between <strong>PR</strong> and <strong>SS</strong>, we show <strong>PR</strong> cannot only improve alignment unless the policy predictions already contain user-aligned trajectories, while <strong>SS</strong> can generate novel plans with user-defined shapes even if they are missing from the initial samples. Additionally, we show one can choose whether to sample plans closer to user input or policy training distribution by adjusting the number of diffusion steps that are guided by user input.
         </div><br>
         <div class="row">
             <table class="center">
@@ -553,7 +555,7 @@
             <p></p>
         </div>
         <div>
-            To illustrate our framework's flexibility to compose multiple inference-time objectives, we show a user can use both positive sketches as preferences and negative sketches as collision constraints to shape the policy output. We take pretrained pushT policies and real-time interative version of pushT from this <a href="https://github.com/alexander-soare/little_experiments/blob/main/action_multimodality.md">LeRobot branch</a> and use gray lines to represent positive sketches that bias sampling towards them and black lines to represent negative sketchs that bias sampling away from them. Note the original pushT domain does not have constraints and the policy is trained to push the block to the goal location.
+            To illustrate our framework's flexibility to compose multiple inference-time objectives, we show a user can use both positive sketches as preferences and negative sketches as collision constraints to shape the policy output. We take pre-trained pushT policies and real-time interactive version of pushT from this <a href="https://github.com/alexander-soare/little_experiments/blob/main/action_multimodality.md">LeRobot branch</a> and use gray lines to represent positive sketches that bias sampling towards them and black lines to represent negative sketches that bias sampling away from them. Note the original pushT domain does not have constraints and the policy is trained to push the block to the goal location.
         </div><br>
         <div class="row">
             <table class="center">
