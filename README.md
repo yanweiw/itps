@@ -73,6 +73,15 @@ Replay experiments.
 python interact_maze2d.py -l exp00_dp_gd.json
 ```
 
+## How to get the pre-trained policy?
+While the ITPS framework assumes the pre-trained policy is given, I have received many requests to open source my training data [(D4RL Maze2D)](https://github.com/Farama-Foundation/D4RL/blob/89141a689b0353b0dac3da5cba60da4b1b16254d/d4rl/infos.py#L11) and training code [(my LeRobot fork)](https://github.com/yanweiw/lerobot/blob/custom_dataset/lerobot/scripts/train.py) (use it at your own risk as it is not as well-maintained as the inference code in this repo). So here you are: 
+
+Make sure you are on the `custom_dataset` branch of the training codebase and use the [dataset here](https://drive.google.com/file/d/1UPdjg48e9WFs6j_GTmF2xUJPV_XNMiUk/view?usp=sharing).
+```
+python lerobot/scripts/train.py policy=maze2d_act env=maze2d
+```
+You can set `policy=maze2d_dp` to train a diffusion policy. If the `itps` conda environment does not support training, create a `lerobot` environment [following this](https://github.com/yanweiw/lerobot/tree/custom_dataset). Hopefully, this will work. But I cannot guarantee it, as this is not the paper contribution and I am not maintaining it. 
+
 ## Acknowledgement
 
 Part of the codebase is modified from [LeRobot](https://github.com/huggingface/lerobot).
