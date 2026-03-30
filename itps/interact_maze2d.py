@@ -210,13 +210,14 @@ class MazeEnv:
 
 class UnconditionalMaze(MazeEnv):
     # for dragging the agent around to explore motion manifold
-    def __init__(self, policy, policy_tag=None):
+    def __init__(self, policy, policy_tag=None, device="cpu"):
         super().__init__()
         self.mouse_pos = None
         self.agent_in_collision = False
         self.agent_history_xy = []
         self.policy = policy
         self.policy_tag = policy_tag
+        self.device = device
 
     def infer_target(self, guide=None, visualizer=None):
         agent_hist_xy = self.agent_history_xy[-1] 
@@ -226,17 +227,17 @@ class UnconditionalMaze(MazeEnv):
 
         obs_batch = {
             "observation.state": einops.repeat(
-                torch.from_numpy(agent_hist_xy).float().cuda(), "t d -> b t d", b=self.batch_size
+                torch.from_numpy(agent_hist_xy).float().to(self.device), "t d -> b t d", b=self.batch_size
             )
         }
         obs_batch["observation.environment_state"] = einops.repeat(
-            torch.from_numpy(agent_hist_xy).float().cuda(), "t d -> b t d", b=self.batch_size
+            torch.from_numpy(agent_hist_xy).float().to(self.device), "t d -> b t d", b=self.batch_size
         )
         
         if guide is not None:
-            guide = torch.from_numpy(guide).float().cuda()
+            guide = torch.from_numpy(guide).float().to(self.device)
 
-        with torch.autocast(device_type="cuda"), seeded_context(0):
+        with torch.autocast(device_type=self.device), seeded_context(0):
             if self.policy_tag == 'act':
                 actions = self.policy.run_inference(obs_batch).cpu().numpy()
             else:
@@ -476,7 +477,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create and load the policy
-    device = torch.device("cuda")
+    device = "cpu"
+    if torch.cuda.is_available():
+      device = "cuda"
+    if torch.backends.mps.is_available():
+      device = "mps"
+
 
     alignment_strategy = 'post-hoc'
     if args.post_hoc:
@@ -507,19 +513,19 @@ if __name__ == "__main__":
         policy.diffusion.num_inference_steps = 10
         policy.config.n_action_steps = policy.config.horizon - policy.config.n_obs_steps + 1
         policy_tag = 'dp'
-        policy.cuda()
+        policy.to(device)
         policy.eval()
     elif args.policy in ["act"]:
         policy = ACTPolicy.from_pretrained(pretrained_policy_path)
         policy_tag = 'act'
-        policy.cuda()
+        policy.to(device)
         policy.eval()
     else:
         policy = None
         policy_tag = None
 
     if args.unconditional:
-        interactiveMaze = UnconditionalMaze(policy, policy_tag=policy_tag)
+        interactiveMaze = UnconditionalMaze(policy, policy_tag=policy_tag, device=device)
     elif args.loadpath is not None:
         if args.savepath is None:
             savepath = None
