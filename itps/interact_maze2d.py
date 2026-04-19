@@ -473,8 +473,15 @@ if __name__ == "__main__":
     parser.add_argument('-v', '--vis_dp_dynamics', action='store_true', help="Visualize dynamics in DP")
     parser.add_argument('-s', '--savepath', type=str, default=None, help="Filename to save the drawing")
     parser.add_argument('-l', '--loadpath', type=str, default=None, help="Filename to load the drawing")
+    parser.add_argument('--hf', action='store_true', help="Load weights from Hugging Face Hub instead of a local directory")
 
     args = parser.parse_args()
+
+    HF_REPO_IDS = {
+        "act": "felixw/itps-act",
+        "dp": "felixw/itps-dp",
+        "diffusion": "felixw/itps-dp",
+    }
 
     # Create and load the policy
     device = "cpu"
@@ -504,8 +511,10 @@ if __name__ == "__main__":
         raise NotImplementedError(f"Policy with name {args.policy} is not implemented.")
 
     if args.policy is not None:
-        # Load policy
-        pretrained_policy_path = Path(os.path.join(checkpoint_path, "pretrained_model"))
+        if args.hf:
+            pretrained_policy_path = HF_REPO_IDS[args.policy]
+        else:
+            pretrained_policy_path = Path(os.path.join(checkpoint_path, "pretrained_model"))
 
     if args.policy in ["diffusion", "dp"]:
         policy = DiffusionPolicy.from_pretrained(pretrained_policy_path, alignment_strategy=alignment_strategy)

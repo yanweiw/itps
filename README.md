@@ -24,6 +24,11 @@ pip install -e .
 ```
 Download the pre-trained weights for [Action Chunking Transformers](https://drive.google.com/file/d/1kKt__yQpXOzgAGFvfGpBWdtWX_QxWsVK/view?usp=sharing) and [Diffusion Policy](https://drive.google.com/file/d/1efez47zfkXl7HgGDSzW-tagdcPj1p8z2/view?usp=sharing) and put them in the `itps/itps` folder (Be sure to unzip the downloaded zip file).
 
+The same checkpoints are also mirrored on Hugging Face — [`felixw/itps-act`](https://huggingface.co/felixw/itps-act) and [`felixw/itps-dp`](https://huggingface.co/felixw/itps-dp). Pass `--hf` to any of the commands below to download them on demand and skip the manual step:
+```
+python interact_maze2d.py -p [act, dp] -u --hf
+```
+
 ## Visualize pre-trained policies. 
 
 Run ACT or DP unconditionally to explore motion manifolds learned by these pre-trained policies.
