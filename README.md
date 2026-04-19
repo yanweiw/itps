@@ -13,6 +13,11 @@ Create a virtual environment with Python 3.10
 conda create -y -n itps python=3.10
 conda activate itps
 ```
+Or, without conda (e.g. Homebrew Python on macOS — install with `brew install python@3.10` if needed):
+```
+python3.10 -m venv .venv
+source .venv/bin/activate
+```
 Install ITPS
 ```
 pip install -e .

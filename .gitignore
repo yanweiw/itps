@@ -4,3 +4,5 @@ itps/weights_*/
 itps/weights_*.zip
 .DS_Store
 .vscode
+.venv/
+venv/
