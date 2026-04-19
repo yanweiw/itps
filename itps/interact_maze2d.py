@@ -278,8 +278,8 @@ class UnconditionalMaze(MazeEnv):
 
 class ConditionalMaze(UnconditionalMaze):
     # for interactive guidance dataset collection
-    def __init__(self, policy, vis_dp_dynamics=False, savepath=None, alignment_strategy=None, policy_tag=None):
-        super().__init__(policy, policy_tag=policy_tag)
+    def __init__(self, policy, vis_dp_dynamics=False, savepath=None, alignment_strategy=None, policy_tag=None, device="cpu"):
+        super().__init__(policy, policy_tag=policy_tag, device=device)
         self.drawing = False
         self.keep_drawing = False
         self.vis_dp_dynamics = vis_dp_dynamics
@@ -364,8 +364,8 @@ class ConditionalMaze(UnconditionalMaze):
 
 class MazeExp(ConditionalMaze):
     # for replaying the trials and benchmarking the alignment strategies
-    def __init__(self, policy, vis_dp_dynamics=False, savepath=None, alignment_strategy=None, policy_tag=None, loadpath=None):
-        super().__init__(policy, vis_dp_dynamics, savepath, policy_tag=policy_tag)
+    def __init__(self, policy, vis_dp_dynamics=False, savepath=None, alignment_strategy=None, policy_tag=None, loadpath=None, device="cpu"):
+        super().__init__(policy, vis_dp_dynamics, savepath, policy_tag=policy_tag, device=device)
         # Load saved trails
         assert loadpath is not None
         with open(args.loadpath, "r", buffering=1) as file:
@@ -540,7 +540,7 @@ if __name__ == "__main__":
             elif alignment_strategy == 'stochastic-sampling':
                 alignment_tag = 'ss'
             savepath = f"{args.loadpath[:-5]}_{policy_tag}_{alignment_tag}{args.savepath}"
-        interactiveMaze = MazeExp(policy, args.vis_dp_dynamics, savepath, alignment_strategy, policy_tag=policy_tag, loadpath=args.loadpath)
+        interactiveMaze = MazeExp(policy, args.vis_dp_dynamics, savepath, alignment_strategy, policy_tag=policy_tag, loadpath=args.loadpath, device=device)
     else:
-        interactiveMaze = ConditionalMaze(policy, args.vis_dp_dynamics, args.savepath, alignment_strategy, policy_tag=policy_tag)
+        interactiveMaze = ConditionalMaze(policy, args.vis_dp_dynamics, args.savepath, alignment_strategy, policy_tag=policy_tag, device=device)
     interactiveMaze.run()
