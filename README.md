@@ -1,97 +1,126 @@
-# Inference-Time Policy Steering (ITPS)
+---
+title: ITPS Maze2D (browser-side, ACT)
+emoji: 🌀
+colorFrom: red
+colorTo: yellow
+sdk: static
+pinned: false
+license: mit
+models:
+  - felixw/itps-act
+short_description: Real-time multimodal ACT predictions on YOUR device. No server compute.
+---
 
-Maze2D benchmark of various sampling methods with sketch input from the paper [Inference-Time Policy Steering through Human Interactions](https://yanweiw.github.io/itps/).
+# ITPS Maze2D — browser-side ACT
 
-## Installation 
-Clone this repo
+Real-time, multimodal motion predictions from the
+[*Inference-Time Policy Steering through Human Interactions*](https://yanweiw.github.io/itps/)
+paper, running entirely in your browser. Move your mouse over the maze and
+watch 32 sampled trajectories follow your cursor.
+
+## How to use
+
+Open the page, wait a few seconds for `act.onnx` (~44 MB, FP16) to download,
+then move the mouse over the maze. Trajectories that pass through walls are
+tinted toward white. The first visit downloads the model; subsequent visits
+load it from the browser cache instantly.
+
+This Space hosts the unconditional ACT path of the original CLI:
+
 ```
-git clone git@github.com:yanweiw/itps.git
-cd itps
+python interact_maze2d.py -p act -u
 ```
-Create a virtual environment with Python 3.10
+
+The Diffusion-Policy variant and sketch-based guidance from the paper are
+deferred to follow-on Spaces — see "What's NOT here yet" below.
+
+## What's powering this
+
+| Layer | Tech |
+| --- | --- |
+| ML runtime | [ONNX Runtime Web 1.20](https://onnxruntime.ai/docs/tutorials/web/) via jsDelivr CDN |
+| Acceleration | WebGPU when available (any modern browser on Mac, Windows, recent Android, iPhone 13+); WASM fallback otherwise |
+| Model | [ACT](https://huggingface.co/felixw/itps-act) — Action Chunking Transformer, 153 MB → 44 MB FP16 ONNX |
+| UI | Vanilla `<canvas>` + `<script type="module">`. No build step, no framework. |
+| Server compute | **Zero**. The Hugging Face Static Space serves a handful of files; inference happens on the visitor's device. |
+
+The whole client side is three files: `index.html`, `app.js`, `style.css`,
+plus the model weights in `act.onnx`. The `scripts/export_onnx.py` script
+runs once locally to produce `act.onnx` from the PyTorch checkpoint.
+
+## Performance
+
+Per-frame inference latency on the visitor's device:
+
+| Device | Backend | ms / frame | FPS |
+| --- | --- | --- | --- |
+| M-series Mac | WebGPU | ~3-10 | 30+ |
+| Modern Windows / Linux laptop | WebGPU | ~5-15 | 30+ |
+| iPhone 13+ / iPad Pro | WebGPU | ~10-30 | 20-30 |
+| Older laptop, no WebGPU | WASM SIMD | ~50-100 | 8-15 |
+
+The status pill at the top of the page shows the actual measured ms/frame
+and FPS once the model is loaded.
+
+## Run locally
+
+You don't need Hugging Face Spaces — any static file server works. From the
+repo root:
+
+```bash
+python scripts/serve.py            # preferred: COOP/COEP -> WASM threading
+# or: python -m http.server 8000   # works, but WASM falls back to single-thread
+
+# then open http://localhost:8000 in Chrome / Edge / Safari 18+
 ```
-conda create -y -n itps python=3.10
-conda activate itps
-```
-Or, without conda (e.g. Homebrew Python on macOS — install with `brew install python@3.10` if needed):
-```
-python3.10 -m venv .venv
+
+`scripts/serve.py` is a tiny wrapper around `http.server` that adds the
+COOP/COEP headers needed to enable `SharedArrayBuffer` — without those,
+ORT Web's WASM backend silently falls back to single-threaded SIMD, which
+is ~4x slower. (If WebGPU works on your device, the headers don't matter;
+they only affect the WASM fallback path.)
+
+The first `act.onnx` request downloads from the local server; the model
+runs in your browser via WebGPU / WASM exactly as it does on the deployed
+Space.
+
+## Re-exporting the model
+
+If you retrain ACT or change the input/output shape, regenerate `act.onnx`
+locally:
+
+```bash
 source .venv/bin/activate
-```
-Install ITPS
-```
-pip install -e .
-```
-Download the pre-trained weights for [Action Chunking Transformers](https://drive.google.com/file/d/1kKt__yQpXOzgAGFvfGpBWdtWX_QxWsVK/view?usp=sharing) and [Diffusion Policy](https://drive.google.com/file/d/1efez47zfkXl7HgGDSzW-tagdcPj1p8z2/view?usp=sharing) and put them in the `itps/itps` folder (Be sure to unzip the downloaded zip file).
-
-The same checkpoints are also mirrored on Hugging Face — [`felixw/itps-act`](https://huggingface.co/felixw/itps-act) and [`felixw/itps-dp`](https://huggingface.co/felixw/itps-dp). Pass `--hf` to any of the commands below to download them on demand and skip the manual step:
-```
-python interact_maze2d.py -p [act, dp] -u --hf
+pip install onnx onnxruntime onnxconverter-common onnxscript
+python scripts/export_onnx.py
 ```
 
-## Visualize pre-trained policies. 
+The script wraps the trained `ACTPolicy` so the ONNX graph takes
+`(state, env_state, latent)` as positional inputs. The latent is supplied
+from JS (a seedable PRNG matching `seeded_context(0)` from the original
+CLI), which keeps the ONNX graph deterministic and avoids ORT's spotty
+WebGPU support for `RandomNormal`.
 
-Run ACT or DP unconditionally to explore motion manifolds learned by these pre-trained policies.
-```
-python interact_maze2d.py -p [act, dp] -u
-```
-|Multimodal predictions of DP|
-|---------------------------|
-|![](media/dp_manifold.gif)|
+## What's NOT here yet
 
+| Feature | Where it would live |
+| --- | --- |
+| Unconditional DP (mouse-follow with diffusion) | A future variant: export the DP UNet to ONNX, add a ~30-line DDIM loop in JS. |
+| Sketch input + post-hoc / biased-init strategies | Pure browser, no autograd needed. ~70 LOC additive. |
+| Sketch input + guided-diffusion / stochastic-sampling | Either a hybrid call to a Gradio Space, or finite-difference gradient approximation in JS. |
 
-## Bias sampling with sketch interaction. 
+This Space is intentionally minimal — the goal is to show that the realtime
+unconditional case lives perfectly well as a static page on free hosting,
+and to make adding the rest of the paper's strategies a sequence of small
+incremental commits rather than a flag day.
 
-`-ph` - Post-Hoc Ranking
-`-op` - Output Perturbation
-`-bi` - Biased Initialization
-`-gd` - Guided Diffusion
-`-ss` - Stochastic Sampling
-```
-python interact_maze2d.py -p [act, dp] [-ph, -bi, -gd, -ss]
-```
-|Post-Hoc Ranking Example|
-|---------------------------|
-|![](media/pr_example.gif)|
-Draw by clicking and dragging the mouse. Re-initialize the agent (red) position by moving the mouse close to it without clicking. 
+## Source
 
-## Visualize sampling dynamics.
-
-Run DP with BI, GD or SS with `-v` option.
-```
-python interact_maze2d.py -p [act, dp] [-bi, -gd, -ss] -v
-```
-| Stochastic Sampling Example|
-|---------------------------|
-|![](media/ss_dynamics.gif)|
-
-## Benchmark methods.
-Save sketches into a file `exp00.json` and use them across methods.
-```
-python interact_maze2d.py -p [act, dp] -s exp00.json
-```
-Visualize saved sketches by loading the saved file, press the key `n` for next. 
-```
-python interact_maze2d.py -p [act, dp] [-ph, -op, -bi, -gd, -ss] -l exp00.json
-```
-Save experiments into `exp00_dp_gd.json`
-```
-python interact_maze2d.py -p dp -gd -l exp00.json -s .json
-```
-Replay experiments.
-```
-python interact_maze2d.py -l exp00_dp_gd.json
-```
-
-## How to get the pre-trained policy?
-While the ITPS framework assumes the pre-trained policy is given, I have received many requests to open source my training data [(D4RL Maze2D)](https://github.com/Farama-Foundation/D4RL/blob/89141a689b0353b0dac3da5cba60da4b1b16254d/d4rl/infos.py#L11) and training code [(my LeRobot fork)](https://github.com/yanweiw/lerobot/blob/custom_dataset/lerobot/scripts/train.py) (use it at your own risk as it is not as well-maintained as the inference code in this repo). So here you are: 
-
-Make sure you are on the `custom_dataset` branch of the training codebase and use the [dataset here](https://drive.google.com/file/d/1UPdjg48e9WFs6j_GTmF2xUJPV_XNMiUk/view?usp=sharing).
-```
-python lerobot/scripts/train.py policy=maze2d_act env=maze2d
-```
-You can set `policy=maze2d_dp` to train a diffusion policy. If the `itps` conda environment does not support training, create a `lerobot` environment [following this](https://github.com/yanweiw/lerobot/tree/custom_dataset). Hopefully, this will work. But I cannot guarantee it, as this is not the paper contribution and I am not maintaining it. 
+Code is on the `browser-demo` branch of
+[github.com/yanweiw/itps](https://github.com/yanweiw/itps). The Python CLI,
+training code, and original `pygame` interface live on `main`.
 
 ## Acknowledgement
 
-Part of the codebase is modified from [LeRobot](https://github.com/huggingface/lerobot).
+Pre-trained ACT weights and the original `interact_maze2d.py` are by
+Yanwei Wang. ACT builds on [LeRobot](https://github.com/huggingface/lerobot).

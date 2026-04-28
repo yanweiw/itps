@@ -1,8 +1,14 @@
-itps/common/*/__pycache__/
-itps/common/policies/*/__pycache__/
+__pycache__/
+**/__pycache__/
 itps/weights_*/
 itps/weights_*.zip
 .DS_Store
 .vscode
 .venv/
 venv/
+
+# Intermediate ONNX export artifacts (the FP16 act.onnx is committed; FP32 is
+# only produced as a debugging step and may have a sibling .data file).
+act_fp32.onnx
+act_fp32.onnx.data
+*.onnx.data

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ITPS Maze2D — browser-side ACT</title>
+    <link rel="stylesheet" href="style.css" />
+    <!--
+      ONNX Runtime Web 1.24.3 from jsDelivr (WebGPU + WASM in one bundle).
+      Newer ORT releases ship better WebGPU kernel coverage and faster
+      Apple-Silicon GPU paths than the 1.20 line we started on.
+    -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/ort.min.js"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <header>
+      <h1>Inference-Time Policy Steering — Maze2D</h1>
+      <p class="subtitle">
+        Real-time multimodal ACT predictions running entirely on your device.
+        Move the mouse over the maze. Based on
+        <a href="https://yanweiw.github.io/itps/" target="_blank" rel="noopener"
+          >Wang et al., <em>Inference-Time Policy Steering through Human Interactions</em></a
+        >.
+      </p>
+    </header>
+    <main>
+      <div id="status">Loading model…</div>
+      <canvas id="maze" width="1200" height="900"></canvas>
+      <div id="controls">
+        <label for="batch-slider">
+          Batch size:
+          <input type="range" id="batch-slider" min="1" max="32" step="1" value="8" />
+          <span id="batch-value">8</span>
+        </label>
+        <small id="batch-hint">
+          Number of multimodal trajectories sampled per frame. Bigger = more
+          to look at, but slower (each frame is one batched forward pass).
+          ACT is near-unimodal so 4–8 looks identical to 32. Changing the
+          value triggers a brief kernel recompile.
+        </small>
+      </div>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
