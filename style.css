@@ -104,6 +104,15 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
+/* Engine selector + status share one horizontal row above the maze. */
+#top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 #engine-fieldset {
   display: flex;
   align-items: center;
@@ -111,15 +120,6 @@ main {
   margin: 0;
   padding: 0;
   border: 0;
-}
-
-#engine-fieldset legend {
-  display: inline;
-  padding: 0;
-  margin-right: 4px;
-  color: var(--muted);
-  font-size: 13px;
-  float: none;
 }
 
 .radio-pill {

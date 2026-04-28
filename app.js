@@ -79,7 +79,10 @@ const DP_HORIZON = 64; // action prediction horizon
 const DP_N_OBS_STEPS = 2; // observations are repeated twice in time
 const DP_GLOBAL_COND_DIM = 8; // (state_dim + env_state_dim) * n_obs_steps
 const DP_NUM_TRAIN_TIMESTEPS = 100; // diffusion training timesteps
-const DEFAULT_DDIM_STEPS = 10; // matches policy.diffusion.num_inference_steps
+// Default 4 keeps DP's mouse-follow loop responsive at batch=8 on M-series
+// WebGPU (~30 ms / frame, ~30 FPS). The paper's CLI uses 10 (slower but
+// slightly cleaner samples), which is also the slider's upper bound.
+const DEFAULT_DDIM_STEPS = 4;
 let currentDdimSteps = DEFAULT_DDIM_STEPS;
 
 // Both engines draw `CHUNK_SIZE` trajectory samples per batch. ACT and DP
@@ -777,7 +780,7 @@ function wireStepsSlider() {
   // value automatically.
   const onChange = () => {
     const n = parseInt(slider.value, 10);
-    if (!Number.isFinite(n) || n < 1 || n > 25) return;
+    if (!Number.isFinite(n) || n < 1 || n > 10) return;
     currentDdimSteps = n;
     valueEl.textContent = String(n);
     if (currentEngine === "dp") statusReady();

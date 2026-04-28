@@ -27,11 +27,8 @@
       </p>
     </header>
     <main>
-      <div id="status">Loading model…</div>
-      <canvas id="maze" width="1200" height="900"></canvas>
-      <div id="controls" data-engine="dp">
+      <div id="top-bar">
         <fieldset id="engine-fieldset">
-          <legend>Engine:</legend>
           <label class="radio-pill">
             <input type="radio" name="engine" value="dp" checked />
             <span>DP</span>
@@ -41,7 +38,10 @@
             <span>ACT</span>
           </label>
         </fieldset>
-
+        <div id="status">Loading model…</div>
+      </div>
+      <canvas id="maze" width="1200" height="900"></canvas>
+      <div id="controls" data-engine="dp">
         <label for="batch-slider">
           Batch size:
           <input type="range" id="batch-slider" min="1" max="32" step="1" value="8" />
@@ -50,16 +50,11 @@
 
         <label for="steps-slider" id="steps-control">
           DDIM steps:
-          <input type="range" id="steps-slider" min="1" max="25" step="1" value="10" />
-          <span id="steps-value">10</span>
+          <input type="range" id="steps-slider" min="1" max="10" step="1" value="4" />
+          <span id="steps-value">4</span>
         </label>
 
         <small id="batch-hint">
-          <strong>Engine:</strong> DP = Diffusion Policy (multimodal, slower);
-          ACT = Action Chunking Transformer (unimodal, very fast). First switch
-          to either engine downloads its weights (~31 MB DP UNet, ~44 MB ACT)
-          and is then cached.
-          <br />
           <strong>Batch size:</strong> trajectories per frame. Bigger looks
           richer but is slower; changing it briefly recompiles the active
           engine. ACT is near-unimodal so 4-8 looks identical to 32.
