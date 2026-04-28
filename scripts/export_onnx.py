@@ -1,23 +1,21 @@
-"""One-time export of the ACT policy to ONNX for browser-side inference.
+"""One-time export of ITPS policies (ACT or DP) to ONNX for browser inference.
 
 Usage:
-    python scripts/export_onnx.py            # writes ./act.onnx (FP16, ~75 MB)
-    python scripts/export_onnx.py --fp32     # also keep act_fp32.onnx for debugging
+    python scripts/export_onnx.py --engine act        # writes ./act.onnx
+    python scripts/export_onnx.py --engine dp         # writes ./dp_unet.onnx
+    python scripts/export_onnx.py --engine dp --fp32  # also keep dp_unet_fp32.onnx
 
-The wrapper takes three positional inputs:
+Both wrappers take fully positional inputs (ONNX hates dict feeds). The JS side
+generates the random tensors that the original PyTorch code produces internally
+(VAE latent for ACT, initial sample for DP) so that:
 
-* ``state``     (B, 2)   pre-normalized agent xy in maze coords
-* ``env_state`` (B, 2)   pre-normalized environment state (== state for Maze2D)
-* ``latent``    (B, 32)  standard-normal noise vector that replaces the
-                         ``torch.randn`` call inside ``ACT.forward``. Injecting
-                         it as an input means the model is fully deterministic
-                         given inputs, the JS side can re-seed it per call to
-                         match ``seeded_context(0)`` from the original CLI, and
-                         the ONNX graph contains no ``RandomNormal`` op (which
-                         is sometimes patchy under WebGPU).
+* the ONNX graph is fully deterministic given inputs,
+* the JS can re-seed per call to match ``seeded_context(0)`` from the CLI, and
+* we don't depend on ORT WebGPU's spotty ``RandomNormal`` support.
 
-Normalization stays on the JS side (just 4 floats: mean=[3.6688, 5.3566],
-std=[1.8173, 2.5588]) so the ONNX graph is purely the trained transformer.
+Normalization stats (mean/std for ACT, min/max for DP) are printed to stdout
+after export so they can be pasted into ``app.js`` as JS constants -- we keep
+normalization on the JS side so the ONNX graph is purely the trained network.
 """
 
 from __future__ import annotations
@@ -25,6 +23,8 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from dataclasses import dataclass
+from typing import Callable
 
 import numpy as np
 import torch
@@ -35,10 +35,11 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO_ROOT, "itps"))
 
 from common.policies.act.modeling_act import ACTPolicy  # noqa: E402
+from common.policies.diffusion.modeling_diffusion import DiffusionPolicy  # noqa: E402
 
-DEFAULT_WEIGHTS = "itps/weights_act/pretrained_model"
-DEFAULT_OUTPUT = os.path.join(_REPO_ROOT, "act.onnx")
-DEFAULT_FP32_OUTPUT = os.path.join(_REPO_ROOT, "act_fp32.onnx")
+# ---------------------------------------------------------------------------
+# Engine wrappers
+# ---------------------------------------------------------------------------
 
 
 class ACTExport(nn.Module):
@@ -60,10 +61,7 @@ class ACTExport(nn.Module):
 
     def forward(self, state: torch.Tensor, env_state: torch.Tensor, latent: torch.Tensor) -> torch.Tensor:
         m = self.model
-        batch_size = env_state.shape[0]
 
-        # Build the transformer-encoder input tokens in the same order as the
-        # original forward pass: [latent, robot_state, env_state].
         encoder_in_tokens = [
             m.encoder_latent_input_proj(latent),
             m.encoder_robot_state_input_proj(state),
@@ -76,6 +74,7 @@ class ACTExport(nn.Module):
 
         encoder_out = m.encoder(encoder_in_tokens, pos_embed=encoder_in_pos_embed)
 
+        batch_size = env_state.shape[0]
         decoder_in = torch.zeros(
             (m.config.chunk_size, batch_size, m.config.dim_model),
             dtype=encoder_in_pos_embed.dtype,
@@ -91,81 +90,187 @@ class ACTExport(nn.Module):
         return m.action_head(decoder_out)  # (B, chunk_size=64, action_dim=2)
 
 
-def export(weights_path: str, fp32_path: str, fp16_path: str, keep_fp32: bool) -> None:
-    print(f"[1/4] loading {weights_path}")
-    policy = ACTPolicy.from_pretrained(weights_path).eval()
+class DPExport(nn.Module):
+    """Thin wrapper around DP's UNet for the DDIM denoising step. The JS side
+    drives the loop (sample initialization, timestep schedule, DDIM update) so
+    only one forward pass through the UNet is exported. This keeps the graph
+    small and the number of inference steps a runtime-tunable JS knob rather
+    than a property baked into the ONNX file.
+    """
+
+    def __init__(self, policy: DiffusionPolicy):
+        super().__init__()
+        self.unet = policy.diffusion.unet
+
+    def forward(
+        self, sample: torch.Tensor, timestep: torch.Tensor, global_cond: torch.Tensor
+    ) -> torch.Tensor:
+        # sample:      (B, horizon, action_dim) e.g. (B, 64, 2)
+        # timestep:    (B,) int64
+        # global_cond: (B, global_cond_dim)     e.g. (B, 8)
+        # returns:     noise_pred same shape as sample
+        return self.unet(sample, timestep, global_cond=global_cond)
+
+
+# ---------------------------------------------------------------------------
+# Engine specs
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class EngineSpec:
+    name: str
+    weights_path: str
+    out_basename: str  # filename for the FP16 onnx, e.g. "act.onnx"
+    build: Callable[[], "tuple[nn.Module, tuple[torch.Tensor, ...], list[str], list[str], dict]"]
+    print_stats: Callable[[object], None]  # takes the policy, prints the JS-pasteable constants
+
+
+def _build_act() -> tuple:
+    policy = ACTPolicy.from_pretrained("itps/weights_act/pretrained_model").eval()
     wrapper = ACTExport(policy).eval()
-
     B = 32
-    state_dim = 2
-    latent_dim = policy.config.latent_dim
-    chunk_size = policy.config.chunk_size
+    state = torch.zeros(B, 2)
+    env_state = torch.zeros(B, 2)
+    latent = torch.randn(B, policy.config.latent_dim)
+    inputs = (state, env_state, latent)
+    input_names = ["state", "env_state", "latent"]
+    output_names = ["actions"]
+    dynamic_axes = {n: {0: "batch"} for n in input_names + output_names}
+    return policy, wrapper, inputs, input_names, output_names, dynamic_axes
 
-    state = torch.zeros(B, state_dim)
-    env_state = torch.zeros(B, state_dim)
-    latent = torch.randn(B, latent_dim)
+
+def _print_act_stats(policy: ACTPolicy) -> None:
+    print("\n  JS constants (already in app.js):")
+    bsm = policy.normalize_inputs.buffer_observation_state
+    bem = policy.unnormalize_outputs.buffer_action
+    print(f"    STATE_MEAN  = {bsm['mean'].tolist()}")
+    print(f"    STATE_STD   = {bsm['std'].tolist()}")
+    print(f"    ACTION_MEAN = {bem['mean'].tolist()}")
+    print(f"    ACTION_STD  = {bem['std'].tolist()}")
+
+
+def _build_dp() -> tuple:
+    policy = DiffusionPolicy.from_pretrained(
+        "itps/weights_dp/pretrained_model", alignment_strategy="post-hoc"
+    ).eval()
+    wrapper = DPExport(policy).eval()
+    B = 32
+    horizon = policy.config.horizon
+    action_dim = policy.config.output_shapes["action"][0]
+    n_obs_steps = policy.config.n_obs_steps
+    state_dim = policy.config.input_shapes["observation.state"][0]
+    env_state_dim = policy.config.input_shapes["observation.environment_state"][0]
+    global_cond_dim = (state_dim + env_state_dim) * n_obs_steps  # = 8 for Maze2D
+
+    # Pseudo-random non-zero inputs so the verification step exercises real
+    # weights (a zero sample can mask broadcast / shape bugs).
+    torch.manual_seed(0)
+    sample = torch.randn(B, horizon, action_dim)
+    timestep = torch.full((B,), 50, dtype=torch.long)
+    global_cond = torch.randn(B, global_cond_dim)
+
+    inputs = (sample, timestep, global_cond)
+    input_names = ["sample", "timestep", "global_cond"]
+    output_names = ["noise_pred"]
+    dynamic_axes = {n: {0: "batch"} for n in input_names + output_names}
+    return policy, wrapper, inputs, input_names, output_names, dynamic_axes
+
+
+def _print_dp_stats(policy: DiffusionPolicy) -> None:
+    print("\n  JS constants for app.js (DP):")
+    bsm = policy.normalize_inputs.buffer_observation_state
+    bem = policy.unnormalize_outputs.buffer_action
+    print(f"    DP_STATE_MIN  = {bsm['min'].tolist()}")
+    print(f"    DP_STATE_MAX  = {bsm['max'].tolist()}")
+    print(f"    DP_ACTION_MIN = {bem['min'].tolist()}")
+    print(f"    DP_ACTION_MAX = {bem['max'].tolist()}")
+    print(f"    DP_HORIZON              = {policy.config.horizon}")
+    print(f"    DP_N_OBS_STEPS          = {policy.config.n_obs_steps}")
+    print(f"    DP_GLOBAL_COND_DIM      = {(policy.config.input_shapes['observation.state'][0] + policy.config.input_shapes['observation.environment_state'][0]) * policy.config.n_obs_steps}")
+    print(f"    DP_NUM_TRAIN_TIMESTEPS  = {policy.config.num_train_timesteps}")
+    # Print the alphas_cumprod table so it can be pasted as ALPHAS_CUMPROD literal.
+    alphas = policy.diffusion.noise_scheduler.alphas_cumprod.tolist()
+    print(f"    ALPHAS_CUMPROD ({len(alphas)} floats) =")
+    for i in range(0, len(alphas), 5):
+        chunk = ", ".join(f"{a:.10f}" for a in alphas[i : i + 5])
+        print(f"      {chunk},")
+
+
+ENGINES = {
+    "act": EngineSpec(
+        name="act",
+        weights_path="itps/weights_act/pretrained_model",
+        out_basename="act.onnx",
+        build=_build_act,
+        print_stats=_print_act_stats,
+    ),
+    "dp": EngineSpec(
+        name="dp",
+        weights_path="itps/weights_dp/pretrained_model",
+        out_basename="dp_unet.onnx",
+        build=_build_dp,
+        print_stats=_print_dp_stats,
+    ),
+}
+
+
+# ---------------------------------------------------------------------------
+# Generic export pipeline
+# ---------------------------------------------------------------------------
+
+
+def export(spec: EngineSpec, fp32_path: str, fp16_path: str, keep_fp32: bool) -> None:
+    print(f"[1/4] loading {spec.weights_path}")
+    policy, wrapper, inputs, input_names, output_names, dynamic_axes = spec.build()
 
     print(f"[2/4] exporting FP32 ONNX -> {fp32_path}")
     # ``dynamo=False`` selects the legacy TorchScript-based exporter, which is
-    # better-trodden for transformer models and produces cleaner opset-17 output
-    # than the new dynamo path (which keeps emitting opset-18 ``Split`` even when
-    # opset 17 is requested).
+    # better-trodden for transformer/conv models and produces cleaner opset-17
+    # output than the new dynamo path (which keeps emitting opset-18 ``Split``
+    # even when opset 17 is requested).
     torch.onnx.export(
         wrapper,
-        (state, env_state, latent),
+        inputs,
         fp32_path,
         opset_version=17,
-        input_names=["state", "env_state", "latent"],
-        output_names=["actions"],
-        dynamic_axes={
-            "state": {0: "batch"},
-            "env_state": {0: "batch"},
-            "latent": {0: "batch"},
-            "actions": {0: "batch"},
-        },
+        input_names=input_names,
+        output_names=output_names,
+        dynamic_axes=dynamic_axes,
         dynamo=False,
     )
 
     print("[3/4] verifying FP32 ONNX vs PyTorch...")
     import onnxruntime as ort
 
+    feeds = {name: t.numpy() for name, t in zip(input_names, inputs)}
     sess = ort.InferenceSession(fp32_path, providers=["CPUExecutionProvider"])
-    onnx_out = sess.run(
-        None,
-        {
-            "state": state.numpy(),
-            "env_state": env_state.numpy(),
-            "latent": latent.numpy(),
-        },
-    )[0]
+    onnx_out = sess.run(None, feeds)[0]
     with torch.no_grad():
-        torch_out = wrapper(state, env_state, latent).numpy()
+        torch_out = wrapper(*inputs).numpy()
     diff = np.abs(onnx_out - torch_out).max()
     print(f"      max |onnx - pytorch| = {diff:.3e}  (expecting < 1e-3)")
     assert diff < 1e-3, f"FP32 ONNX divergence too large: {diff}"
-    print(f"      onnx output shape   = {onnx_out.shape}  (expected (B={B}, T={chunk_size}, 2))")
+    print(f"      onnx output shape   = {onnx_out.shape}  (matches PyTorch)")
 
     print(f"[4/4] converting FP32 -> FP16 -> {fp16_path}")
     import onnx
-    from onnxconverter_common import float16
+    # Prefer ``onnxruntime.transformers.float16`` over ``onnxconverter_common.float16``:
+    # the former patches ``Cast`` nodes' ``to`` attributes consistently, which
+    # the DP UNet's int64 timestep -> float32 sinusoidal embedder needs. The
+    # older converter leaves a type mismatch behind (cast output declared FP32
+    # but downstream consumer wired up to FP16) that ORT refuses to load.
+    from onnxruntime.transformers.float16 import convert_float_to_float16
 
     model_fp32 = onnx.load(fp32_path)
-    model_fp16 = float16.convert_float_to_float16(
+    model_fp16 = convert_float_to_float16(
         model_fp32,
-        keep_io_types=True,  # keep state/env_state/latent/actions as float32 for JS simplicity
+        keep_io_types=True,  # keep float inputs/outputs as float32 for JS simplicity
     )
     onnx.save(model_fp16, fp16_path)
 
-    # Sanity-check FP16 output as well.
     sess16 = ort.InferenceSession(fp16_path, providers=["CPUExecutionProvider"])
-    onnx16_out = sess16.run(
-        None,
-        {
-            "state": state.numpy(),
-            "env_state": env_state.numpy(),
-            "latent": latent.numpy(),
-        },
-    )[0]
+    onnx16_out = sess16.run(None, feeds)[0]
     diff16 = np.abs(onnx16_out - torch_out).max()
     print(f"      max |fp16 onnx - pytorch| = {diff16:.3e}  (FP16 noise floor ~ 1e-2)")
 
@@ -184,16 +289,34 @@ def export(weights_path: str, fp32_path: str, fp16_path: str, keep_fp32: bool) -
             os.remove(ext)
         print("  (FP32 ONNX removed; pass --fp32 to keep it for debugging)")
 
+    spec.print_stats(policy)
+
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--weights", default=DEFAULT_WEIGHTS, help="path to pretrained ACT checkpoint")
-    parser.add_argument("--out", default=DEFAULT_OUTPUT, help="output FP16 ONNX path")
-    parser.add_argument("--fp32-out", default=DEFAULT_FP32_OUTPUT, help="intermediate FP32 ONNX path")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument(
+        "--engine",
+        choices=sorted(ENGINES.keys()),
+        default="act",
+        help="which policy to export (default: act)",
+    )
+    parser.add_argument(
+        "--out",
+        default=None,
+        help="output FP16 ONNX path (default: <repo>/<engine>.onnx)",
+    )
+    parser.add_argument(
+        "--fp32-out",
+        default=None,
+        help="intermediate FP32 ONNX path (default: <fp16_out>_fp32)",
+    )
     parser.add_argument("--fp32", action="store_true", help="keep the intermediate FP32 ONNX file")
     args = parser.parse_args()
 
-    export(args.weights, args.fp32_out, args.out, keep_fp32=args.fp32)
+    spec = ENGINES[args.engine]
+    fp16_path = args.out or os.path.join(_REPO_ROOT, spec.out_basename)
+    fp32_path = args.fp32_out or fp16_path.replace(".onnx", "_fp32.onnx")
+    export(spec, fp32_path, fp16_path, keep_fp32=args.fp32)
 
 
 if __name__ == "__main__":

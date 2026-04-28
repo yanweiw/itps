@@ -92,7 +92,7 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
   color: var(--muted);
 }
@@ -104,13 +104,57 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
-#batch-slider {
+#engine-fieldset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+#engine-fieldset legend {
+  display: inline;
+  padding: 0;
+  margin-right: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  float: none;
+}
+
+.radio-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.radio-pill input {
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.radio-pill span {
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: 0.3px;
+}
+
+#batch-slider,
+#steps-slider {
   width: 220px;
   accent-color: var(--accent);
   cursor: pointer;
 }
 
-#batch-value {
+#batch-value,
+#steps-value {
   display: inline-block;
   min-width: 24px;
   font-weight: 600;
@@ -118,10 +162,22 @@ main {
   text-align: right;
 }
 
+/* DDIM-steps slider only matters for DP. The active engine is reflected on
+   the #controls container via app.js -- when ACT is selected, hide it. */
+#controls[data-engine="act"] #steps-control {
+  display: none;
+}
+
 #batch-hint {
   font-size: 11px;
   opacity: 0.75;
   text-align: center;
-  max-width: 540px;
-  line-height: 1.4;
+  max-width: 600px;
+  line-height: 1.5;
+}
+
+#batch-hint strong {
+  color: var(--fg);
+  opacity: 0.95;
+  font-weight: 600;
 }
