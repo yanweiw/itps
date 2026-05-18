@@ -1,0 +1,192 @@
+:root {
+  --bg: #111418;
+  --fg: #e6e8eb;
+  --muted: #9098a4;
+  --accent: #ffb84d;
+  --pill-bg: #1d2126;
+  --pill-border: #2c323a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 24px 16px 48px;
+  gap: 16px;
+}
+
+header {
+  max-width: 880px;
+  text-align: center;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.subtitle a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.subtitle a:hover {
+  text-decoration: underline;
+}
+
+.paper-credit {
+  display: block;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+#status {
+  display: inline-block;
+  padding: 6px 14px;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  border-radius: 999px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+#maze {
+  display: block;
+  width: min(100%, 900px);
+  height: auto;
+  aspect-ratio: 1200 / 900;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  cursor: crosshair;
+  image-rendering: pixelated;
+}
+
+#controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+#controls label,
+#alignment-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Engine selector + status share one horizontal row above the maze. */
+#top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+#engine-fieldset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.radio-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.radio-pill input {
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.radio-pill span {
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: 0.3px;
+}
+
+#batch-slider,
+#steps-slider {
+  width: 220px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+#alignment-select {
+  cursor: pointer;
+}
+
+#batch-value,
+#steps-value {
+  display: inline-block;
+  min-width: 24px;
+  font-weight: 600;
+  color: var(--fg);
+  text-align: right;
+}
+
+/* DDIM-steps slider only matters for DP. The active engine is reflected on
+   the #controls container via app.js -- when ACT is selected, hide it. */
+#controls[data-engine="act"] #steps-control {
+  display: none;
+}
+
+#batch-hint {
+  max-width: 760px;
+  font-size: 11px;
+  opacity: 0.75;
+  text-align: center;
+  line-height: 1.5;
+}
+
+#batch-hint strong {
+  color: var(--fg);
+  opacity: 0.95;
+  font-weight: 600;
+}
