@@ -524,8 +524,13 @@ const ENGINE_FILES = {
 };
 
 function configureOrt() {
-  if (typeof navigator !== "undefined" && navigator.hardwareConcurrency) {
+  const canUseThreadedWasm = typeof crossOriginIsolated !== "undefined" && crossOriginIsolated;
+  if (canUseThreadedWasm && typeof navigator !== "undefined" && navigator.hardwareConcurrency) {
     ort.env.wasm.numThreads = Math.min(navigator.hardwareConcurrency, 8);
+  } else {
+    // GitHub Pages cannot set COOP/COEP headers, so SharedArrayBuffer is not
+    // available there. Force single-thread WASM so iPad/Safari fallback works.
+    ort.env.wasm.numThreads = 1;
   }
   ort.env.wasm.simd = true;
   ort.env.logLevel = "warning";
