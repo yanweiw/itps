@@ -20,10 +20,14 @@
       <h1>Inference-Time Policy Steering — Maze2D</h1>
       <p class="subtitle">
         Real-time motion-policy predictions running entirely on your device.
-        Pick an engine, move the mouse over the maze. Based on
-        <a href="https://yanweiw.github.io/itps/" target="_blank" rel="noopener"
-          >Wang et al., <em>Inference-Time Policy Steering through Human Interactions</em></a
-        >.
+        Pick an engine, move the mouse over the maze.
+        <br />
+        <span class="paper-credit">
+          Based on
+          <a href="https://yanweiw.github.io/itps/" target="_blank" rel="noopener"
+            >Wang et al., <em>Inference-Time Policy Steering through Human Interactions</em></a
+          >.
+        </span>
       </p>
     </header>
     <main>
@@ -54,14 +58,22 @@
           <span id="steps-value">4</span>
         </label>
 
+        <div id="alignment-control">
+          <span>Sketch alignment method:</span>
+          <select id="alignment-select">
+            <option value="unconditional-rollouts" selected>unconditional rollouts</option>
+            <option value="guided-diffusion">guided diffusion</option>
+            <option value="post-hoc">post-hoc ranking</option>
+            <option value="biased-initialization">biased initialization</option>
+            <option value="stochastic-sampling">stochastic sampling (slow, use ddim step 10 for better quality)</option>
+          </select>
+        </div>
+
         <small id="batch-hint">
-          <strong>Batch size:</strong> trajectories per frame. Bigger looks
-          richer but is slower; changing it briefly recompiles the active
-          engine. ACT is near-unimodal so 4-8 looks identical to 32.
-          <br />
-          <strong>DDIM steps</strong> (DP only): denoising iterations per
-          frame. The paper uses 10; lower = faster but rougher. Changing it
-          is instant (no recompile).
+          <strong>Batch size:</strong> Trajectories per frame. Bigger looks richer but is slower; collision trajectories are whitened/grayed compared to collision-free ones.
+          <strong>DDIM steps:</strong> DP denoising iterations per frame. The paper uses 10; lower is faster but rougher. Changing it is instant.
+          <strong>Unconditional:</strong> With “unconditional rollouts” selected, move or click-and-drag the mouse to reposition the red agent and preview rollouts.
+          <strong>Sketch:</strong> With a sketch method selected, click-and-drag to draw different guide sketches for the same fixed agent location. The agent stays fixed until you move near the red agent to reactivate it.
         </small>
       </div>
     </main>

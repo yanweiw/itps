@@ -57,6 +57,10 @@ h1 {
   text-decoration: underline;
 }
 
+.paper-credit {
+  display: block;
+}
+
 main {
   display: flex;
   flex-direction: column;
@@ -97,7 +101,8 @@ main {
   color: var(--muted);
 }
 
-#controls label {
+#controls label,
+#alignment-control {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -153,6 +158,10 @@ main {
   cursor: pointer;
 }
 
+#alignment-select {
+  cursor: pointer;
+}
+
 #batch-value,
 #steps-value {
   display: inline-block;
@@ -169,10 +178,10 @@ main {
 }
 
 #batch-hint {
+  max-width: 760px;
   font-size: 11px;
   opacity: 0.75;
   text-align: center;
-  max-width: 600px;
   line-height: 1.5;
 }
 

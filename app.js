@@ -94,6 +94,27 @@ const LATENT_SEED = 0; // matches seeded_context(0) in interact_maze2d.py:240
 const ENGINES = ["dp", "act"];
 let currentEngine = "dp";
 
+const UNCONDITIONAL_ALIGNMENT = "unconditional-rollouts";
+const ALIGNMENT_MODES = [
+  UNCONDITIONAL_ALIGNMENT,
+  "post-hoc",
+  "biased-initialization",
+  "guided-diffusion",
+  "stochastic-sampling",
+];
+const DP_ALIGNMENT_MODES = ALIGNMENT_MODES;
+const ACT_ALIGNMENT_MODES = [UNCONDITIONAL_ALIGNMENT, "post-hoc"];
+let currentAlignment = UNCONDITIONAL_ALIGNMENT;
+const ALIGNMENT_LABELS = {
+  [UNCONDITIONAL_ALIGNMENT]: "unconditional rollouts",
+  "post-hoc": "post-hoc ranking",
+  "biased-initialization": "biased initialization",
+  "guided-diffusion": "guided diffusion",
+  "stochastic-sampling": "stochastic sampling (slow, use ddim step 10 for better quality)",
+};
+const SKETCH_CLEAR_RADIUS_PX = 20;
+const GUIDE_MIN_POINTS = 2;
+
 // xy2gui / gui2xy: port of MazeEnv.xy2gui / MazeEnv.gui2xy (lines 134-143).
 // Note the axis swap: maze x (rows) maps to gui y (vertical), maze y (cols)
 // maps to gui x (horizontal).
@@ -191,6 +212,10 @@ function gaussianSampler(rng) {
 function fillStandardNormal(arr, seed) {
   const rng = mulberry32(seed);
   const sample = gaussianSampler(rng);
+  fillStandardNormalFromSampler(arr, sample);
+}
+
+function fillStandardNormalFromSampler(arr, sample) {
   for (let i = 0; i < arr.length; i++) arr[i] = sample();
 }
 
@@ -252,7 +277,7 @@ function ddimTimesteps(numInferenceSteps) {
 //
 // `tPrev = -1` means "this is the last step", in which case we use the
 // `final_alpha_cumprod = 1.0` convention from diffusers.
-function ddimStepInPlace(sample, eps, t, tPrev) {
+function ddimStepInPlace(sample, eps, t, tPrev, predOriginalOut = null) {
   const aT = ALPHAS_CUMPROD[t];
   const aP = tPrev < 0 ? 1.0 : ALPHAS_CUMPROD[tPrev];
   const sqrtAT = Math.sqrt(aT);
@@ -263,8 +288,130 @@ function ddimStepInPlace(sample, eps, t, tPrev) {
     let x0 = (sample[k] - sqrtOmAT * eps[k]) / sqrtAT;
     if (x0 < -1) x0 = -1;
     else if (x0 > 1) x0 = 1;
+    if (predOriginalOut) predOriginalOut[k] = x0;
     sample[k] = sqrtAP * x0 + sqrtOmAP * eps[k];
   }
+}
+
+function addNoiseInPlace(sample, cleanSample, noise, t) {
+  const aT = ALPHAS_CUMPROD[t];
+  const sqrtAT = Math.sqrt(aT);
+  const sqrtOmAT = Math.sqrt(1 - aT);
+  for (let k = 0; k < sample.length; k++) {
+    sample[k] = sqrtAT * cleanSample[k] + sqrtOmAT * noise[k];
+  }
+}
+
+function normalizeDpActionX(x) {
+  return ((x - DP_ACTION_MIN[0]) / (DP_ACTION_MAX[0] - DP_ACTION_MIN[0] + 1e-8)) * 2 - 1;
+}
+
+function normalizeDpActionY(y) {
+  return ((y - DP_ACTION_MIN[1]) / (DP_ACTION_MAX[1] - DP_ACTION_MIN[1] + 1e-8)) * 2 - 1;
+}
+
+function denormalizeDpActions(sample, batchSize) {
+  const flatLen = batchSize * DP_HORIZON * 2;
+  const actions = new Float32Array(flatLen);
+  const rangeX = DP_ACTION_MAX[0] - DP_ACTION_MIN[0];
+  const rangeY = DP_ACTION_MAX[1] - DP_ACTION_MIN[1];
+  for (let i = 0; i < flatLen; i += 2) {
+    actions[i]     = (sample[i]     + 1) * 0.5 * rangeX + DP_ACTION_MIN[0];
+    actions[i + 1] = (sample[i + 1] + 1) * 0.5 * rangeY + DP_ACTION_MIN[1];
+  }
+  return actions;
+}
+
+function buildGuideFromSketch() {
+  if (!keepDrawing || drawTrajGui.length < GUIDE_MIN_POINTS) return null;
+  if (_guideCache && _guideCache.revision === guideRevision) return _guideCache;
+
+  const xy = new Float32Array(DP_HORIZON * 2);
+  const norm = new Float32Array(DP_HORIZON * 2);
+  const last = drawTrajGui.length - 1;
+  for (let s = 0; s < DP_HORIZON; s++) {
+    const srcIdx = Math.floor((s * last) / Math.max(DP_HORIZON - 1, 1));
+    const [x, y] = gui2xy(drawTrajGui[srcIdx][0], drawTrajGui[srcIdx][1]);
+    const off = s * 2;
+    xy[off] = x;
+    xy[off + 1] = y;
+    norm[off] = normalizeDpActionX(x);
+    norm[off + 1] = normalizeDpActionY(y);
+  }
+
+  _guideCache = { revision: guideRevision, xy, norm };
+  return _guideCache;
+}
+
+function addGuideGradientToEps(eps, sample, guideNorm, guideRatio) {
+  const B = currentBatchSize;
+  const invH = 1 / DP_HORIZON;
+  for (let b = 0; b < B; b++) {
+    const batchOff = b * DP_HORIZON * 2;
+    for (let s = 0; s < DP_HORIZON; s++) {
+      const idx = batchOff + s * 2;
+      const guideIdx = s * 2;
+      const dx = sample[idx] - guideNorm[guideIdx];
+      const dy = sample[idx + 1] - guideNorm[guideIdx + 1];
+      const dist = Math.hypot(dx, dy);
+      if (dist <= 1e-8) continue;
+      eps[idx] += guideRatio * dx * invH / dist;
+      eps[idx + 1] += guideRatio * dy * invH / dist;
+    }
+  }
+}
+
+function sortTrajectoriesByGuide(actions, guideXy) {
+  const B = currentBatchSize;
+  const dists = new Float32Array(B);
+  let maxDist = 0;
+  for (let b = 0; b < B; b++) {
+    let sum = 0;
+    const batchOff = b * CHUNK_SIZE * 2;
+    for (let s = 0; s < CHUNK_SIZE; s++) {
+      const idx = batchOff + s * 2;
+      const guideIdx = s * 2;
+      sum += Math.hypot(actions[idx] - guideXy[guideIdx], actions[idx + 1] - guideXy[guideIdx + 1]);
+    }
+    dists[b] = sum / CHUNK_SIZE;
+    if (dists[b] > maxDist) maxDist = dists[b];
+  }
+
+  const logits = new Float32Array(B);
+  let maxLogit = -Infinity;
+  for (let b = 0; b < B; b++) {
+    logits[b] = (1 - dists[b] / (maxDist + 1e-6)) * 20;
+    if (logits[b] > maxLogit) maxLogit = logits[b];
+  }
+
+  const scores = new Float32Array(B);
+  let expSum = 0;
+  for (let b = 0; b < B; b++) {
+    scores[b] = Math.exp(logits[b] - maxLogit);
+    expSum += scores[b];
+  }
+  let minScore = Infinity;
+  let maxScore = -Infinity;
+  for (let b = 0; b < B; b++) {
+    scores[b] /= expSum || 1;
+    if (scores[b] < minScore) minScore = scores[b];
+    if (scores[b] > maxScore) maxScore = scores[b];
+  }
+  const span = maxScore - minScore;
+  for (let b = 0; b < B; b++) {
+    scores[b] = span > 1e-12 ? (scores[b] - minScore) / span : 1;
+  }
+
+  const order = Array.from({ length: B }, (_, b) => b).sort((a, b) => scores[a] - scores[b]);
+  const sortedActions = new Float32Array(actions.length);
+  const sortedScores = new Float32Array(B);
+  const stride = CHUNK_SIZE * 2;
+  for (let dst = 0; dst < B; dst++) {
+    const src = order[dst];
+    sortedActions.set(actions.subarray(src * stride, (src + 1) * stride), dst * stride);
+    sortedScores[dst] = scores[src];
+  }
+  return { actions: sortedActions, scores: sortedScores };
 }
 
 
@@ -299,7 +446,7 @@ function drawMaze() {
   ctx.drawImage(getMazeBackground(), 0, 0);
 }
 
-function drawTrajectories(xyTrajFlat, collisions) {
+function drawTrajectories(xyTrajFlat, collisions, scores = null) {
   // For each batch element, draw chunk_size circles colored by rainbow time.
   // Trajectories that collide get tinted toward white (factor=0.8). Faithful
   // to the original CLI: trajectories are drawn at the model's raw action
@@ -308,16 +455,31 @@ function drawTrajectories(xyTrajFlat, collisions) {
   const B = currentBatchSize;
   for (let b = 0; b < B; b++) {
     const factor = collisions[b] ? 0.8 : 0.0;
+    const radius = scores ? Math.round(3 + 20 * scores[b]) : 5;
     for (let s = 0; s < CHUNK_SIZE - 1; s++) {
       const idx = (b * CHUNK_SIZE + s) * 2;
       const [gx, gy] = xy2gui(xyTrajFlat[idx], xyTrajFlat[idx + 1]);
       const [r, g, bl] = blendWhite(RAINBOW_64[s], factor);
       ctx.fillStyle = `rgb(${r},${g},${bl})`;
       ctx.beginPath();
-      ctx.arc(gx, gy, 5, 0, Math.PI * 2);
+      ctx.arc(gx, gy, radius, 0, Math.PI * 2);
       ctx.fill();
     }
   }
+}
+
+function drawGuide() {
+  if ((!isDrawing && !keepDrawing) || drawTrajGui.length < 2) return;
+  ctx.strokeStyle = "rgb(150,150,150)";
+  ctx.lineWidth = 10;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(drawTrajGui[0][0], drawTrajGui[0][1]);
+  for (let i = 1; i < drawTrajGui.length; i++) {
+    ctx.lineTo(drawTrajGui[i][0], drawTrajGui[i][1]);
+  }
+  ctx.stroke();
 }
 
 function drawAgent(gx, gy, inCollision) {
@@ -328,10 +490,11 @@ function drawAgent(gx, gy, inCollision) {
   ctx.fill();
 }
 
-function renderFrame(agentGx, agentGy, agentInCollision, xyTrajFlat, collisions) {
+function renderFrame(agentGx, agentGy, agentInCollision, xyTrajFlat, collisions, scores = null) {
   drawMaze();
-  if (xyTrajFlat) drawTrajectories(xyTrajFlat, collisions);
+  if (xyTrajFlat) drawTrajectories(xyTrajFlat, collisions, scores);
   drawAgent(agentGx, agentGy, agentInCollision);
+  drawGuide();
 }
 
 
@@ -436,9 +599,12 @@ async function activateEngine(engine, batchSize) {
 function statusReady() {
   const adapter = adapterDescription ? ` (${adapterDescription})` : "";
   const dpExtra = currentEngine === "dp" ? ` · ${currentDdimSteps} DDIM steps` : "";
+  const sketchHint = currentAlignment === UNCONDITIONAL_ALIGNMENT
+    ? " · unconditional rollouts"
+    : " · drag to sketch a guide";
   statusEl.textContent =
     `Ready · ${chosenEp}${adapter} · ${currentEngine.toUpperCase()}${dpExtra}` +
-    ` · batch=${currentBatchSize} · move your mouse over the maze`;
+    ` · batch=${currentBatchSize} · move your mouse over the maze${sketchHint}`;
 }
 
 async function loadModel() {
@@ -477,6 +643,7 @@ async function setBatchSize(newSize) {
     const { session: newSess, ep } = await buildSession(currentEngine, newSize);
     currentBatchSize = newSize;
     allocateBuffers(currentEngine, newSize);
+    resetTrajectoryCache();
     session = newSess;
     chosenEp = ep;
     sessionCache.set(currentEngine, { session: newSess, batchSize: newSize, ep });
@@ -513,6 +680,8 @@ async function setEngine(newEngine) {
   try {
     const prevEngine = currentEngine;
     currentEngine = newEngine;
+    currentAlignment = UNCONDITIONAL_ALIGNMENT;
+    clearSketch();
     try {
       await activateEngine(newEngine, currentBatchSize);
     } catch (err) {
@@ -520,6 +689,7 @@ async function setEngine(newEngine) {
       throw err;
     }
     _frameTimes.length = 0;
+    resetTrajectoryCache();
     statusReady();
     updateEngineSpecificUi();
   } catch (err) {
@@ -563,6 +733,8 @@ function allocateBuffers(engine, batchSize) {
   } else {
     _dpBufs = {
       sample:     new Float32Array(batchSize * DP_HORIZON * 2),
+      clean:      new Float32Array(batchSize * DP_HORIZON * 2),
+      noise:      new Float32Array(batchSize * DP_HORIZON * 2),
       timestep:   new BigInt64Array(batchSize), // ORT int64 tensor expects BigInt64Array
       globalCond: new Float32Array(batchSize * DP_GLOBAL_COND_DIM),
     };
@@ -610,10 +782,11 @@ async function runACT(stateXY) {
 // 6. DP inference (DDIM loop in JS, UNet via ORT)
 // ============================================================================
 
-async function runDP(stateXY) {
+async function runDP(stateXY, guide = null) {
   const B = currentBatchSize;
   const numSteps = currentDdimSteps;
   const bufs = _dpBufs;
+  const useGuide = guide && currentAlignment !== UNCONDITIONAL_ALIGNMENT && currentAlignment !== "post-hoc";
 
   // 1. min_max normalize state to [-1, 1]: x_norm = ((x - min) / range) * 2 - 1
   const xn = ((stateXY[0] - DP_STATE_MIN[0]) / (DP_STATE_MAX[0] - DP_STATE_MIN[0] + 1e-8)) * 2 - 1;
@@ -633,45 +806,62 @@ async function runDP(stateXY) {
   // 3. Initial sample ~ N(0, I). Reseed each call so the same agent xy always
   //    produces the same batch of trajectories (matches the original CLI's
   //    `seeded_context(0)`).
-  fillStandardNormal(bufs.sample, LATENT_SEED);
+  const randn = gaussianSampler(mulberry32(LATENT_SEED));
+  fillStandardNormalFromSampler(bufs.sample, randn);
+
+  if (useGuide && currentAlignment === "biased-initialization") {
+    for (let b = 0; b < B; b++) {
+      const batchOff = b * DP_HORIZON * 2;
+      for (let k = 0; k < DP_HORIZON * 2; k++) {
+        bufs.sample[batchOff + k] = 0.5 * bufs.sample[batchOff + k] + guide.norm[k];
+      }
+    }
+  }
 
   // 4. DDIM denoising loop. The UNet is the only ORT call; the scheduler step
   //    runs in JS. See the diffusers parity check in
   //    scripts/verify_dp_js_math.py -- both paths agree to 0.0e+00.
   const timesteps = ddimTimesteps(numSteps);
+  const startInfluenceStep = useGuide && currentAlignment === "biased-initialization" ? 50 : DP_NUM_TRAIN_TIMESTEPS;
+  const mcmcSteps = useGuide && currentAlignment === "stochastic-sampling" ? 4 : 1;
   for (let i = 0; i < timesteps.length; i++) {
     const t = timesteps[i];
     const tPrev = i + 1 < timesteps.length ? timesteps[i + 1] : -1;
+    if (t > startInfluenceStep) continue;
 
     const tBig = BigInt(t);
     for (let b = 0; b < B; b++) bufs.timestep[b] = tBig;
 
-    const feeds = {
-      sample:      new ort.Tensor("float32", bufs.sample,     [B, DP_HORIZON, 2]),
-      timestep:    new ort.Tensor("int64",   bufs.timestep,   [B]),
-      global_cond: new ort.Tensor("float32", bufs.globalCond, [B, DP_GLOBAL_COND_DIM]),
-    };
-    const out = await session.run(feeds);
-    ddimStepInPlace(bufs.sample, out.noise_pred.data, t, tPrev);
+    for (let m = 0; m < mcmcSteps; m++) {
+      const feeds = {
+        sample:      new ort.Tensor("float32", bufs.sample,     [B, DP_HORIZON, 2]),
+        timestep:    new ort.Tensor("int64",   bufs.timestep,   [B]),
+        global_cond: new ort.Tensor("float32", bufs.globalCond, [B, DP_GLOBAL_COND_DIM]),
+      };
+      const out = await session.run(feeds);
+      const eps = out.noise_pred.data;
+      if (t > 0 && useGuide && (currentAlignment === "guided-diffusion" || currentAlignment === "stochastic-sampling")) {
+        addGuideGradientToEps(eps, bufs.sample, guide.norm, currentAlignment === "guided-diffusion" ? 20 : 60);
+      }
+
+      const needsCleanSample = m < mcmcSteps - 1;
+      ddimStepInPlace(bufs.sample, eps, t, tPrev, needsCleanSample ? bufs.clean : null);
+      if (needsCleanSample) {
+        fillStandardNormalFromSampler(bufs.noise, randn);
+        addNoiseInPlace(bufs.sample, bufs.clean, bufs.noise, t);
+      }
+    }
   }
 
   // 5. Unnormalize: actions in [-1, 1] -> maze coords.
   // Original CLI slices to actions[:, n_obs_steps - 1 : ...] but for the
   // visualization the very-first-step difference is imperceptible -- we keep
   // all 64 to match the chunk size used by the shared rendering code.
-  const flatLen = B * DP_HORIZON * 2;
-  const actions = new Float32Array(flatLen);
-  const rangeX = DP_ACTION_MAX[0] - DP_ACTION_MIN[0];
-  const rangeY = DP_ACTION_MAX[1] - DP_ACTION_MIN[1];
-  for (let i = 0; i < flatLen; i += 2) {
-    actions[i]     = (bufs.sample[i]     + 1) * 0.5 * rangeX + DP_ACTION_MIN[0];
-    actions[i + 1] = (bufs.sample[i + 1] + 1) * 0.5 * rangeY + DP_ACTION_MIN[1];
-  }
-  return actions;
+  return denormalizeDpActions(bufs.sample, B);
 }
 
-async function runEngine(stateXY) {
-  return currentEngine === "act" ? runACT(stateXY) : runDP(stateXY);
+async function runEngine(stateXY, guide = null) {
+  return currentEngine === "act" ? runACT(stateXY) : runDP(stateXY, guide);
 }
 
 
@@ -679,13 +869,23 @@ async function runEngine(stateXY) {
 // 7. Mouse-follow loop with always-last coalescing
 // ============================================================================
 //
-// `latestXY` always holds the *most recent* mousemove position. While inference
-// is running, additional mousemove events overwrite it instead of queuing.
+// `latestXY` always holds the *most recent* pointer position. While inference
+// is running, additional pointermove events overwrite it instead of queuing.
 // When `tick()` finishes one inference + render, it loops back to consume the
 // latest position. JS equivalent of Gradio's `trigger_mode="always_last"`.
 
-let latestXY = null; // (gui_x, gui_y) of the most recent mousemove
+let latestXY = null; // (gui_x, gui_y) of the most recent pointer position
 let pending = false; // true while tick() is running
+let agentGui = null;
+let isDrawing = false;
+let keepDrawing = false;
+let drawTrajGui = [];
+let guideRevision = 0;
+let _guideCache = null;
+let lastActions = null;
+let lastCollisions = null;
+let lastScores = null;
+let lastAgentInCollision = false;
 
 function clientToCanvas(e) {
   const rect = canvas.getBoundingClientRect();
@@ -695,16 +895,65 @@ function clientToCanvas(e) {
   ];
 }
 
+function invalidateGuide() {
+  guideRevision++;
+  _guideCache = null;
+}
+
+function distGui(a, b) {
+  return Math.hypot(a[0] - b[0], a[1] - b[1]);
+}
+
+function appendSketchPoint(pt) {
+  const last = drawTrajGui[drawTrajGui.length - 1];
+  if (!last || distGui(last, pt) >= 2) {
+    drawTrajGui.push(pt);
+    invalidateGuide();
+  }
+}
+
+function clearSketch() {
+  isDrawing = false;
+  keepDrawing = false;
+  drawTrajGui = [];
+  lastScores = null;
+  latestXY = null;
+  invalidateGuide();
+}
+
+function resetTrajectoryCache() {
+  lastActions = null;
+  lastCollisions = null;
+  lastScores = null;
+}
+
+function requestTick() {
+  if (!pending && !inferenceLocked) {
+    tick().catch((err) => {
+      statusEl.textContent = `Inference error: ${err.message}`;
+      console.error(err);
+    });
+  }
+}
+
 async function tick() {
   pending = true;
   try {
     while (latestXY && !inferenceLocked) {
-      const [gx, gy] = latestXY;
+      const pointerXY = latestXY;
       latestXY = null;
-      const [mx, my] = gui2xy(gx, gy);
+      if (!keepDrawing && !isDrawing) agentGui = pointerXY;
+      const [mx, my] = gui2xy(agentGui[0], agentGui[1]);
+      const guide = currentAlignment !== UNCONDITIONAL_ALIGNMENT ? buildGuideFromSketch() : null;
 
       const t0 = performance.now();
-      const actions = await runEngine([mx, my]);
+      let actions = await runEngine([mx, my], guide);
+      let scores = null;
+      if (guide) {
+        const ranked = sortTrajectoriesByGuide(actions, guide.xy);
+        actions = ranked.actions;
+        scores = ranked.scores;
+      }
       const collisions = checkCollision(actions, currentBatchSize, CHUNK_SIZE);
       const agentInCollision = checkCollision(
         new Float32Array([mx, my]),
@@ -713,12 +962,18 @@ async function tick() {
       )[0];
       const dt = performance.now() - t0;
       const stat = recordFrameTime(dt);
+      lastActions = actions;
+      lastCollisions = collisions;
+      lastScores = scores;
+      lastAgentInCollision = agentInCollision;
+      const renderAgentGui = [agentGui[0], agentGui[1]];
 
       requestAnimationFrame(() => {
-        renderFrame(gx, gy, agentInCollision, actions, collisions);
+        renderFrame(renderAgentGui[0], renderAgentGui[1], agentInCollision, actions, collisions, scores);
         const dpExtra = currentEngine === "dp" ? ` · ${currentDdimSteps} steps` : "";
+        const guideExtra = guide ? ` · ${ALIGNMENT_LABELS[currentAlignment]}` : "";
         statusEl.textContent =
-          `${chosenEp} · ${currentEngine.toUpperCase()}${dpExtra}` +
+          `${chosenEp} · ${currentEngine.toUpperCase()}${dpExtra}${guideExtra}` +
           ` · batch=${currentBatchSize} · ${stat.ms.toFixed(0)} ms / frame · ${stat.fps.toFixed(1)} FPS`;
       });
     }
@@ -727,14 +982,70 @@ async function tick() {
   }
 }
 
-function onMouseMove(e) {
-  latestXY = clientToCanvas(e);
-  if (!pending && !inferenceLocked) {
-    tick().catch((err) => {
-      statusEl.textContent = `Inference error: ${err.message}`;
-      console.error(err);
-    });
+function onPointerDown(e) {
+  if (e.button !== 0) return;
+  const pt = clientToCanvas(e);
+  if (currentAlignment === UNCONDITIONAL_ALIGNMENT) {
+    clearSketch();
+    latestXY = pt;
+    requestTick();
+    e.preventDefault();
+    return;
   }
+  if (!agentGui) agentGui = pt;
+  latestXY = null;
+  isDrawing = true;
+  keepDrawing = false;
+  drawTrajGui = [pt];
+  lastScores = null;
+  invalidateGuide();
+  if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+  renderFrame(agentGui[0], agentGui[1], lastAgentInCollision, lastActions, lastCollisions, lastScores);
+  e.preventDefault();
+}
+
+function onPointerMove(e) {
+  const pt = clientToCanvas(e);
+  if (currentAlignment === UNCONDITIONAL_ALIGNMENT) {
+    clearSketch();
+    latestXY = pt;
+    requestTick();
+    return;
+  }
+
+  if (isDrawing) {
+    appendSketchPoint(pt);
+    renderFrame(agentGui[0], agentGui[1], lastAgentInCollision, lastActions, lastCollisions, lastScores);
+    e.preventDefault();
+    return;
+  }
+
+  if (keepDrawing && agentGui && distGui(pt, agentGui) < SKETCH_CLEAR_RADIUS_PX) {
+    clearSketch();
+  }
+
+  latestXY = pt;
+  requestTick();
+}
+
+function onPointerUp(e) {
+  if (!isDrawing) return;
+  appendSketchPoint(clientToCanvas(e));
+  isDrawing = false;
+  keepDrawing = drawTrajGui.length >= GUIDE_MIN_POINTS;
+  invalidateGuide();
+  if (canvas.releasePointerCapture) canvas.releasePointerCapture(e.pointerId);
+  latestXY = agentGui;
+  requestTick();
+  e.preventDefault();
+}
+
+function onPointerCancel(e) {
+  if (!isDrawing) return;
+  isDrawing = false;
+  keepDrawing = drawTrajGui.length >= GUIDE_MIN_POINTS;
+  if (canvas.releasePointerCapture) canvas.releasePointerCapture(e.pointerId);
+  renderFrame(agentGui[0], agentGui[1], lastAgentInCollision, lastActions, lastCollisions, lastScores);
 }
 
 
@@ -746,6 +1057,49 @@ function updateEngineSpecificUi() {
   // Toggle DDIM-steps control visibility based on active engine.
   const controls = document.getElementById("controls");
   if (controls) controls.dataset.engine = currentEngine;
+  updateAlignmentOptions();
+}
+
+function alignmentModesForEngine(engine) {
+  return engine === "act" ? ACT_ALIGNMENT_MODES : DP_ALIGNMENT_MODES;
+}
+
+function updateAlignmentOptions() {
+  const select = document.getElementById("alignment-select");
+  if (!select) return;
+  const modes = alignmentModesForEngine(currentEngine);
+  select.replaceChildren(...modes.map((mode) => {
+    const option = document.createElement("option");
+    option.value = mode;
+    option.textContent = ALIGNMENT_LABELS[mode];
+    return option;
+  }));
+  select.value = currentAlignment;
+}
+
+function setAlignment(mode, rerun = true) {
+  if (!alignmentModesForEngine(currentEngine).includes(mode)) return;
+  currentAlignment = mode;
+  lastScores = null;
+  if (mode === UNCONDITIONAL_ALIGNMENT) {
+    clearSketch();
+    renderFrame(agentGui[0], agentGui[1], lastAgentInCollision, lastActions, lastCollisions, null);
+    updateAlignmentOptions();
+    if (rerun && agentGui) {
+      latestXY = agentGui;
+      requestTick();
+    } else {
+      statusReady();
+    }
+    return;
+  }
+  updateAlignmentOptions();
+  if (rerun && keepDrawing) {
+    latestXY = agentGui;
+    requestTick();
+  } else if (!rerun || !keepDrawing) {
+    statusReady();
+  }
 }
 
 function wireBatchSlider() {
@@ -789,6 +1143,15 @@ function wireStepsSlider() {
   slider.addEventListener("change", onChange);
 }
 
+function wireAlignmentSelect() {
+  const select = document.getElementById("alignment-select");
+  if (!select) return;
+  updateAlignmentOptions();
+  select.addEventListener("change", () => {
+    setAlignment(select.value);
+  });
+}
+
 function wireEngineRadio() {
   const radios = document.querySelectorAll('input[name="engine"]');
   radios.forEach((r) => {
@@ -803,15 +1166,20 @@ function wireEngineRadio() {
 async function main() {
   // Initial render: empty maze with agent at the canvas center.
   const [cgx, cgy] = xy2gui(MAZE_ROWS / 2 - OFFSET, MAZE_COLS / 2 - OFFSET);
-  renderFrame(cgx, cgy, false, null, null);
+  agentGui = [cgx, cgy];
+  renderFrame(agentGui[0], agentGui[1], false, null, null);
 
   wireBatchSlider();
   wireStepsSlider();
+  wireAlignmentSelect();
   wireEngineRadio();
   updateEngineSpecificUi();
 
   await loadModel();
-  canvas.addEventListener("mousemove", onMouseMove);
+  canvas.addEventListener("pointerdown", onPointerDown);
+  canvas.addEventListener("pointermove", onPointerMove);
+  canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerCancel);
 }
 
 main().catch((err) => {
