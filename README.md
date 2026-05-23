@@ -1,5 +1,7 @@
 # Inference-Time Policy Steering (ITPS)
 
+<strong><a href="https://yanweiw.github.io/itps/demo/" style="color:red;">Checkout interactive demo!</a></strong>
+
 Maze2D benchmark of various sampling methods with sketch input from the paper [Inference-Time Policy Steering through Human Interactions](https://yanweiw.github.io/itps/).
 
 ## Installation 
