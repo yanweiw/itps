@@ -6,12 +6,14 @@
     <title>ITPS Maze2D — browser-side ACT &amp; DP</title>
     <link rel="stylesheet" href="style.css" />
     <!--
-      ONNX Runtime Web 1.24.3 from jsDelivr (WebGPU + WASM in one bundle).
-      Newer ORT releases ship better WebGPU kernel coverage and faster
-      Apple-Silicon GPU paths than the 1.20 line we started on.
+      ONNX Runtime Web 1.27.0, webgpu bundle (native WebGPU EP + WASM
+      fallback). The native WebGPU EP has kernels for every op in our graphs
+      (notably Softplus, which the older JSEP backend bounced to the CPU 27
+      times per DP UNet pass -- that alone capped DP at ~6 FPS) and runs the
+      ACT transformer ~2x faster than JSEP on Apple Silicon.
     -->
     <script
-      src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/ort.min.js"
+      src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.webgpu.min.js"
       crossorigin="anonymous"
     ></script>
   </head>
