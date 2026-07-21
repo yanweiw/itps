@@ -715,7 +715,7 @@ function statusReady() {
     ? " · unconditional rollouts"
     : " · drag to sketch a guide";
   const cpuHint = chosenEp === "WASM"
-    ? " · no WebGPU in this browser: DP is slow here (try Chrome/Edge, or Safari 26+)"
+    ? " · running on CPU in this browser: DP is slow here (Chrome/Edge on desktop is fastest)"
     : "";
   statusEl.textContent =
     `Ready · ${epLabel()}${adapter} · ${currentEngine.toUpperCase()}${dpExtra}` +
@@ -1363,8 +1363,24 @@ async function main() {
   agentGui = [cgx, cgy];
   renderFrame(agentGui[0], agentGui[1], false, null, null);
 
+  // First visit: coi-serviceworker is about to install and reload the page
+  // (to inject the COOP/COEP headers GitHub Pages can't send). On iOS that
+  // takes a few seconds, and users who started interacting before the
+  // reload hit it mid-inference -- part of the "problem repeatedly
+  // occurred" crash loop. Hold off on the heavy model load until the reload
+  // happens; the timeout covers contexts where the service worker can't
+  // register (private browsing), which then proceed single-threaded.
+  const swWillReload = typeof crossOriginIsolated !== "undefined" && !crossOriginIsolated &&
+    "serviceWorker" in navigator && window.isSecureContext &&
+    !navigator.serviceWorker.controller;
+  if (swWillReload) {
+    statusEl.textContent = "Preparing… (the page reloads once on first visit to enable multithreading)";
+    await new Promise((resolve) => setTimeout(resolve, 6000));
+    // If we're still here after 6 s, the reload isn't coming; carry on.
+  }
+
   // The ORT bundle is injected dynamically by index.html (WebGPU build vs
-  // plain WASM build depending on navigator.gpu); wait until it's loaded.
+  // plain WASM build depending on capability); wait until it's loaded.
   if (window.__ortReady) await window.__ortReady;
   if (typeof ort === "undefined") throw new Error("ONNX Runtime failed to load");
 

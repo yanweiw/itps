@@ -24,20 +24,27 @@
         backend bounced to the CPU 27 times per DP UNet pass -- that alone
         capped DP at ~6 FPS) and runs ACT ~2x faster than JSEP.
       * ort.wasm.min.js (plain WASM build, no asyncify) for browsers without
-        WebGPU -- iOS/old Safari in particular. The asyncify build's
-        stack-switching is fragile on WebKit when WASM memory grows
-        ("Out of bounds memory access" / "maps out of sync" crashes), and
-        the plain build's binary is 10 MB smaller, which matters for iOS
-        tab-memory limits.
+        WebGPU, and for ALL WebKit-engine browsers (Safari on Mac/iOS and
+        every iOS browser) even when they expose navigator.gpu: ONNX
+        Runtime's WebGPU EP does not support Safari, and iOS 26's WebGPU
+        fails mid-inference ("WebGPU validation failed. popErrorScope
+        failed") and crash-loops the tab. The asyncify build's
+        stack-switching is also fragile on WebKit when WASM memory grows
+        ("Out of bounds memory access" / "maps out of sync"), and the plain
+        build's binary is 10 MB smaller, which matters for iOS tab-memory
+        limits.
 
-      app.js awaits window.__ortReady before touching ort. Append
-      ?forceWasm=1 to the URL to test the no-WebGPU path in any browser.
+      app.js awaits window.__ortReady before touching ort. URL overrides for
+      testing: ?forceWasm=1 forces the WASM build anywhere; ?forceWebGpu=1
+      lets WebKit try the WebGPU build anyway.
     -->
     <script>
       (function () {
         var base = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/";
-        var wantWebGpu = "gpu" in navigator &&
-          !/[?&]forceWasm=1/.test(window.location.search);
+        var q = window.location.search;
+        var isWebKit = navigator.vendor === "Apple Computer, Inc.";
+        var wantWebGpu = /[?&]forceWebGpu=1/.test(q) ||
+          ("gpu" in navigator && !isWebKit && !/[?&]forceWasm=1/.test(q));
         var s = document.createElement("script");
         s.src = base + (wantWebGpu ? "ort.webgpu.min.js" : "ort.wasm.min.js");
         s.crossOrigin = "anonymous";
