@@ -544,36 +544,58 @@ async function probeWebGpu() {
   }
 }
 
-// Download with a visible progress percentage (33-45 MB files matter on
-// phones; a silent "Loading model…" looks like a hang on cellular). The
-// bytes are handed straight to ORT and not cached in JS -- batch-size
-// changes re-fetch through the browser's HTTP cache, which keeps peak
-// memory lower on iOS Safari, where the tab gets killed under pressure.
+// Download with visible progress (33-45 MB files matter on phones; a silent
+// "Loading model…" looks like a hang on cellular). The bytes are handed
+// straight to ORT and not cached in JS -- batch-size changes re-fetch
+// through the browser's HTTP cache, which keeps peak memory lower on iOS
+// Safari, where the tab gets killed under pressure.
+//
+// Chunks are collected and concatenated at the end rather than written into
+// a Content-Length-sized buffer: GitHub Pages serves .onnx gzip-compressed,
+// so Content-Length is the *compressed* size while the stream yields
+// *decompressed* bytes -- preallocating from the header overflows ("offset
+// is out of bounds"). A percentage is only shown when the length is
+// trustworthy (no Content-Encoding); otherwise progress is a plain MB count.
 async function fetchModelBytes(file) {
   const resp = await fetch(file);
   if (!resp.ok) throw new Error(`fetch ${file}: HTTP ${resp.status}`);
-  const total = parseInt(resp.headers.get("Content-Length") || "0", 10);
-  if (!resp.body || !total) {
+  if (!resp.body) {
     return new Uint8Array(await resp.arrayBuffer());
   }
-  const bytes = new Uint8Array(total);
+  const encoding = (resp.headers.get("Content-Encoding") || "identity").toLowerCase();
+  const headerLen = parseInt(resp.headers.get("Content-Length") || "0", 10);
+  const total = encoding === "identity" && headerLen > 0 ? headerLen : 0;
+
+  const chunks = [];
   const reader = resp.body.getReader();
   let received = 0;
-  let lastPct = -1;
+  let lastShown = -1;
   const tStart = performance.now();
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
-    bytes.set(value, received);
+    chunks.push(value);
     received += value.length;
-    const pct = Math.floor((received / total) * 100);
     // Only surface progress when the download is actually slow (first,
     // uncached visit); cache hits finish in tens of ms and would just
     // flash over the Recompiling/Loading status.
-    if (pct !== lastPct && performance.now() - tStart > 500) {
-      lastPct = pct;
-      statusEl.textContent = `Downloading ${file} (${(total / 1048576).toFixed(0)} MB)… ${pct}%`;
+    if (performance.now() - tStart > 500) {
+      const shown = total
+        ? Math.floor((received / total) * 100)
+        : Math.floor(received / 1048576);
+      if (shown !== lastShown) {
+        lastShown = shown;
+        statusEl.textContent = total
+          ? `Downloading ${file} (${(total / 1048576).toFixed(0)} MB)… ${shown}%`
+          : `Downloading ${file}… ${shown} MB`;
+      }
     }
+  }
+  const bytes = new Uint8Array(received);
+  let offset = 0;
+  for (const c of chunks) {
+    bytes.set(c, offset);
+    offset += c.length;
   }
   return bytes;
 }
