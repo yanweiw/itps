@@ -6,6 +6,16 @@
     <title>ITPS Maze2D — browser-side ACT &amp; DP</title>
     <link rel="stylesheet" href="style.css" />
     <!--
+      coi-serviceworker (vendored, MIT) injects COOP/COEP headers via a
+      service worker, which GitHub Pages cannot send itself. That makes the
+      page crossOriginIsolated, unlocking SharedArrayBuffer and therefore
+      multi-threaded WASM -- a ~4x speedup for every browser without WebGPU
+      (Safari <= 18 on Mac/iPhone/iPad, default Linux Chrome/Firefox).
+      First visit reloads the page once to activate; WebGPU browsers are
+      unaffected either way. Scope is demo/ only, the main site is untouched.
+    -->
+    <script src="coi-serviceworker.min.js"></script>
+    <!--
       ONNX Runtime Web 1.27.0, webgpu bundle (native WebGPU EP + WASM
       fallback). The native WebGPU EP has kernels for every op in our graphs
       (notably Softplus, which the older JSEP backend bounced to the CPU 27

@@ -130,6 +130,13 @@ main {
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
   cursor: crosshair;
   image-rendering: pixelated;
+  /* Without this, touch browsers treat drags as scroll/zoom gestures and
+     fire pointercancel instead of pointermove -- finger sketching on
+     iPhone/iPad silently did nothing. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #maze-legend {

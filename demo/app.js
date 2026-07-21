@@ -510,12 +510,21 @@ const ENGINE_FILES = {
 };
 
 function configureOrt() {
+  // GitHub Pages cannot send COOP/COEP headers itself, but the vendored
+  // coi-serviceworker (see index.html) injects them and reloads once, making
+  // the page crossOriginIsolated on every visit after the first. That
+  // unlocks SharedArrayBuffer -> multi-threaded WASM, measured ~4x faster
+  // for DP than single-thread (443 -> 107 ms/frame at batch=8, 4 steps on an
+  // 8-thread pool). Threads are capped lower on touch devices: each wasm
+  // pthread costs memory, and iOS Safari terminates tabs under memory
+  // pressure.
   const canUseThreadedWasm = typeof crossOriginIsolated !== "undefined" && crossOriginIsolated;
   if (canUseThreadedWasm && typeof navigator !== "undefined" && navigator.hardwareConcurrency) {
-    ort.env.wasm.numThreads = Math.min(navigator.hardwareConcurrency, 8);
+    const isTouchDevice = (navigator.maxTouchPoints || 0) > 1;
+    ort.env.wasm.numThreads = Math.min(navigator.hardwareConcurrency, isTouchDevice ? 4 : 8);
   } else {
-    // GitHub Pages cannot set COOP/COEP headers, so SharedArrayBuffer is not
-    // available there. Force single-thread WASM so iPad/Safari fallback works.
+    // No cross-origin isolation (first visit before the service worker
+    // activates, or service workers unavailable e.g. private browsing).
     ort.env.wasm.numThreads = 1;
   }
   ort.env.wasm.simd = true;
@@ -535,6 +544,40 @@ async function probeWebGpu() {
   }
 }
 
+// Download with a visible progress percentage (33-45 MB files matter on
+// phones; a silent "Loading model…" looks like a hang on cellular). The
+// bytes are handed straight to ORT and not cached in JS -- batch-size
+// changes re-fetch through the browser's HTTP cache, which keeps peak
+// memory lower on iOS Safari, where the tab gets killed under pressure.
+async function fetchModelBytes(file) {
+  const resp = await fetch(file);
+  if (!resp.ok) throw new Error(`fetch ${file}: HTTP ${resp.status}`);
+  const total = parseInt(resp.headers.get("Content-Length") || "0", 10);
+  if (!resp.body || !total) {
+    return new Uint8Array(await resp.arrayBuffer());
+  }
+  const bytes = new Uint8Array(total);
+  const reader = resp.body.getReader();
+  let received = 0;
+  let lastPct = -1;
+  const tStart = performance.now();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes.set(value, received);
+    received += value.length;
+    const pct = Math.floor((received / total) * 100);
+    // Only surface progress when the download is actually slow (first,
+    // uncached visit); cache hits finish in tens of ms and would just
+    // flash over the Recompiling/Loading status.
+    if (pct !== lastPct && performance.now() - tStart > 500) {
+      lastPct = pct;
+      statusEl.textContent = `Downloading ${file} (${(total / 1048576).toFixed(0)} MB)… ${pct}%`;
+    }
+  }
+  return bytes;
+}
+
 // Build (and freeze the batch axis on) a fresh session for one engine.
 async function buildSession(engine, batchSize) {
   const sessionOpts = {
@@ -542,13 +585,14 @@ async function buildSession(engine, batchSize) {
     freeDimensionOverrides: { batch: batchSize },
   };
   const file = ENGINE_FILES[engine].onnx;
+  const bytes = await fetchModelBytes(file);
   // For DP on WebGPU, keep the chained sample tensor on the GPU between DDIM
   // steps; runDP downloads only the final step's output. ACT has a single
   // output consumed on the CPU every frame.
   const gpuOutputLocation = engine === "dp" ? { sample_out: "gpu-buffer" } : "cpu";
   let s, ep;
   try {
-    s = await ort.InferenceSession.create(file, {
+    s = await ort.InferenceSession.create(bytes, {
       ...sessionOpts,
       executionProviders: ["webgpu"],
       preferredOutputLocation: gpuOutputLocation,
@@ -556,7 +600,7 @@ async function buildSession(engine, batchSize) {
     ep = "WebGPU";
   } catch (errGpu) {
     console.warn(`WebGPU session for ${engine} failed, falling back to WASM:`, errGpu);
-    s = await ort.InferenceSession.create(file, {
+    s = await ort.InferenceSession.create(bytes, {
       ...sessionOpts,
       executionProviders: ["wasm"],
     });
@@ -577,6 +621,11 @@ async function activateEngine(engine, batchSize) {
   }
   const t0 = performance.now();
   const { session: newSess, ep } = await buildSession(engine, batchSize);
+  if (cached) {
+    // Stale batch size: free the old session's GPU/WASM memory. Callers
+    // guarantee no inference is in flight (inferenceLocked + pending drain).
+    cached.session.release().catch(() => {});
+  }
   sessionCache.set(engine, { session: newSess, batchSize, ep });
   session = newSess;
   chosenEp = ep;
@@ -591,15 +640,28 @@ async function activateEngine(engine, batchSize) {
   return true;
 }
 
+// Short EP descriptor for the status line. On the CPU fallback, note the
+// thread count and point at WebGPU browsers -- DP is compute-bound on CPU
+// (~10 FPS at batch=8/4 steps with threads, ~2 FPS without), and users kept
+// reading that as "broken" rather than "this browser has no WebGPU".
+function epLabel() {
+  if (chosenEp !== "WASM") return chosenEp;
+  const thr = ort.env.wasm.numThreads || 1;
+  return `CPU-WASM ×${thr}`;
+}
+
 function statusReady() {
   const adapter = adapterDescription ? ` (${adapterDescription})` : "";
   const dpExtra = currentEngine === "dp" ? ` · ${currentDdimSteps} DDIM steps` : "";
   const sketchHint = currentAlignment === UNCONDITIONAL_ALIGNMENT
     ? " · unconditional rollouts"
     : " · drag to sketch a guide";
+  const cpuHint = chosenEp === "WASM"
+    ? " · no WebGPU in this browser: DP is slow here (try Chrome/Edge, or Safari 26+)"
+    : "";
   statusEl.textContent =
-    `Ready · ${chosenEp}${adapter} · ${currentEngine.toUpperCase()}${dpExtra}` +
-    ` · batch=${currentBatchSize} · move your mouse over the maze${sketchHint}`;
+    `Ready · ${epLabel()}${adapter} · ${currentEngine.toUpperCase()}${dpExtra}` +
+    ` · batch=${currentBatchSize} · move your mouse over the maze${sketchHint}${cpuHint}`;
 }
 
 async function loadModel() {
@@ -616,6 +678,16 @@ async function loadModel() {
     console.info("WebGPU adapter:", adapterInfo);
   } else {
     console.info("WebGPU adapter: not available, will fall back to WASM");
+    // CPU mode: DP costs ~4x per sample what WebGPU does, so start at
+    // batch=4 to keep the first impression interactive. The slider still
+    // goes to 32 for anyone who wants to wait.
+    if (currentBatchSize > 4) {
+      currentBatchSize = 4;
+      const slider = document.getElementById("batch-slider");
+      const valueEl = document.getElementById("batch-value");
+      if (slider) slider.value = "4";
+      if (valueEl) valueEl.textContent = "4";
+    }
   }
 
   await activateEngine(currentEngine, currentBatchSize);
@@ -636,6 +708,8 @@ async function setBatchSize(newSize) {
     // *other* engines are left intact -- they're at the old batch and will be
     // rebuilt when the user next switches to them.)
     const { session: newSess, ep } = await buildSession(currentEngine, newSize);
+    const stale = sessionCache.get(currentEngine);
+    if (stale) stale.session.release().catch(() => {});
     currentBatchSize = newSize;
     allocateBuffers(currentEngine, newSize);
     resetTrajectoryCache();
@@ -788,6 +862,21 @@ async function runACT(stateXY) {
 
 const _scalarTensor = (v) => new ort.Tensor("float32", new Float32Array([v]), [1]);
 
+// Macrotask yield (MessageChannel avoids setTimeout's 4 ms nesting clamp).
+// On the WASM path the whole DDIM loop executes on the main thread; without
+// yields between steps the tab stops painting and handling input for the
+// entire frame (hundreds of ms on phones), and iOS Safari's responsiveness
+// watchdog eventually reloads the page -- which is what "the demo randomly
+// resets to defaults on iPhone" was. WebGPU runs stay tight (no yields).
+const _yieldChannel = typeof MessageChannel !== "undefined" ? new MessageChannel() : null;
+function yieldToBrowser() {
+  if (!_yieldChannel) return new Promise((r) => setTimeout(r, 0));
+  return new Promise((r) => {
+    _yieldChannel.port1.onmessage = () => r();
+    _yieldChannel.port2.postMessage(null);
+  });
+}
+
 async function runDP(stateXY, guide = null) {
   const B = currentBatchSize;
   const numSteps = currentDdimSteps;
@@ -851,6 +940,7 @@ async function runDP(stateXY, guide = null) {
     for (let b = 0; b < B; b++) bufs.timestep[b] = tBig;
 
     for (let m = 0; m < mcmcSteps; m++) {
+      if (chosenEp === "WASM") await yieldToBrowser();
       const renoise = m < mcmcSteps - 1;
       let noiseTensor = zeroNoiseTensor;
       if (renoise) {
@@ -1008,7 +1098,7 @@ async function tick() {
         const dpExtra = currentEngine === "dp" ? ` · ${currentDdimSteps} steps` : "";
         const guideExtra = guide ? ` · ${ALIGNMENT_LABELS[currentAlignment]}` : "";
         statusEl.textContent =
-          `${chosenEp} · ${currentEngine.toUpperCase()}${dpExtra}${guideExtra}` +
+          `${epLabel()} · ${currentEngine.toUpperCase()}${dpExtra}${guideExtra}` +
           ` · batch=${currentBatchSize} · ${stat.ms.toFixed(0)} ms / frame · ${stat.fps.toFixed(1)} FPS`;
       });
     }
@@ -1216,6 +1306,21 @@ async function main() {
   canvas.addEventListener("pointerup", onPointerUp);
   canvas.addEventListener("pointercancel", onPointerCancel);
 }
+
+// Surface otherwise-silent failures (e.g. the WASM runtime failing to
+// initialize on older Safari) in the status pill so remote debugging of
+// "the page just says Loading model…" reports is possible.
+window.addEventListener("error", (e) => {
+  if (statusEl && /Loading|Downloading/.test(statusEl.textContent)) {
+    statusEl.textContent = `Error: ${e.message || e.type}`;
+  }
+});
+window.addEventListener("unhandledrejection", (e) => {
+  const msg = (e.reason && (e.reason.message || String(e.reason))) || "unknown";
+  if (statusEl && /Loading|Downloading/.test(statusEl.textContent)) {
+    statusEl.textContent = `Error: ${msg}`;
+  }
+});
 
 main().catch((err) => {
   statusEl.textContent = `Error: ${err.message}`;
