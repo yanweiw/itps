@@ -20,7 +20,6 @@
       <h1>Inference-Time Policy Steering — Maze2D</h1>
       <p class="subtitle">
         Real-time motion-policy predictions running entirely on your device.
-        Pick an engine, move the mouse over the maze.
         <br />
         <span class="paper-credit">
           Based on
@@ -31,6 +30,30 @@
       </p>
     </header>
     <main>
+      <section id="demo-guide" aria-labelledby="demo-guide-title">
+        <div>
+          <h2 id="demo-guide-title">What are you seeing?</h2>
+          <p>
+            A pretrained robot policy planning through a maze. The red dot is the
+            agent, and the colored trails are possible futures.
+          </p>
+          <p class="why-it-matters">
+            <strong>Why this is cool:</strong> Your sketch steers the policy live at
+            inference time—without retraining it.
+          </p>
+        </div>
+        <div>
+          <h2>Try it</h2>
+          <p>
+            <strong>Explore:</strong> Leave “unconditional rollouts” selected and
+            move the red dot to preview different futures.
+          </p>
+          <p>
+            <strong>Sketch a guide:</strong> Choose a sketch-conditioned method,
+            then click and drag from the red dot to draw a desired path.
+          </p>
+        </div>
+      </section>
       <div id="top-bar">
         <fieldset id="engine-fieldset">
           <label class="radio-pill">
@@ -45,6 +68,11 @@
         <div id="status">Loading model…</div>
       </div>
       <canvas id="maze" width="1200" height="900"></canvas>
+      <p id="maze-legend">
+        <span><i class="legend-agent"></i>Red dot: agent</span>
+        <span><i class="legend-future"></i>Rainbow trails: predicted futures</span>
+        <span><i class="legend-collision"></i>Pale trails: wall collisions</span>
+      </p>
       <div id="controls" data-engine="dp">
         <label for="batch-slider">
           Batch size:
@@ -68,14 +96,30 @@
             <option value="stochastic-sampling">stochastic sampling (slow, use ddim step 10 for better quality)</option>
           </select>
         </div>
-
-        <small id="batch-hint">
-          <strong>Batch size:</strong> Trajectories per frame. Bigger looks richer but is slower; collision trajectories are whitened/grayed compared to collision-free ones.
-          <strong>DDIM steps:</strong> DP denoising iterations per frame. The paper uses 10; lower is faster but rougher. Changing it is instant.
-          <strong>Unconditional:</strong> With “unconditional rollouts” selected, move or click-and-drag the mouse to reposition the red agent and preview rollouts.
-          <strong>Sketch:</strong> With a sketch method selected, click-and-drag to draw different guide sketches for the same fixed agent location. The agent stays fixed until you move near the red agent to reactivate it.
-        </small>
       </div>
+      <details id="demo-details">
+        <summary>What do the policies and controls mean?</summary>
+        <div class="details-grid">
+          <p>
+            <strong>ACT vs. DP:</strong> ACT predicts action chunks directly. DP
+            samples trajectories through diffusion; in this demo it tends to
+            produce more varied, collision-free possibilities.
+          </p>
+          <p>
+            <strong>Sketch methods:</strong> The dropdown compares post-hoc
+            ranking, biased initialization, guided diffusion, and stochastic
+            sampling. Available methods depend on the selected policy.
+          </p>
+          <p>
+            <strong>Batch size:</strong> How many futures are sampled per frame.
+            Larger batches look richer but run more slowly.
+          </p>
+          <p>
+            <strong>DDIM steps:</strong> DP denoising iterations per frame. More
+            steps refine the samples but take longer; the paper uses 10.
+          </p>
+        </div>
+      </details>
     </main>
     <script type="module" src="app.js"></script>
   </body>

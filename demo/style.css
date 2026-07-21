@@ -69,6 +69,46 @@ main {
   width: 100%;
 }
 
+#demo-guide {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px;
+  width: min(100%, 900px);
+  padding: 14px 18px;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#demo-guide h2 {
+  margin: 0 0 3px;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#demo-guide p {
+  margin: 0;
+}
+
+#demo-guide p + p {
+  margin-top: 4px;
+}
+
+#demo-guide strong,
+#demo-details strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+#demo-guide .why-it-matters {
+  padding-top: 6px;
+  border-top: 1px solid var(--pill-border);
+}
+
 #status {
   display: inline-block;
   padding: 6px 14px;
@@ -90,6 +130,43 @@ main {
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
   cursor: crosshair;
   image-rendering: pixelated;
+}
+
+#maze-legend {
+  display: flex;
+  justify-content: center;
+  gap: 8px 18px;
+  flex-wrap: wrap;
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+#maze-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#maze-legend i {
+  display: inline-block;
+  width: 18px;
+  height: 4px;
+  border-radius: 999px;
+}
+
+#maze-legend .legend-agent {
+  width: 8px;
+  height: 8px;
+  background: #ff0000;
+}
+
+#maze-legend .legend-future {
+  background: linear-gradient(90deg, #7f00ff, #00bfff, #7fff00, #ffdf00, #ff0000);
+}
+
+#maze-legend .legend-collision {
+  background: linear-gradient(90deg, #ded3e7, #d8e5e8, #eee3d0);
 }
 
 #controls {
@@ -177,16 +254,39 @@ main {
   display: none;
 }
 
-#batch-hint {
-  max-width: 760px;
-  font-size: 11px;
-  opacity: 0.75;
-  text-align: center;
+#demo-details {
+  width: min(100%, 760px);
+  padding: 10px 14px;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
   line-height: 1.5;
 }
 
-#batch-hint strong {
+#demo-details summary {
   color: var(--fg);
-  opacity: 0.95;
   font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 20px;
+  max-width: 760px;
+  margin-top: 10px;
+}
+
+.details-grid p {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  #demo-guide,
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
 }
