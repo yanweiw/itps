@@ -520,8 +520,12 @@ function configureOrt() {
   // pressure.
   const canUseThreadedWasm = typeof crossOriginIsolated !== "undefined" && crossOriginIsolated;
   if (canUseThreadedWasm && typeof navigator !== "undefined" && navigator.hardwareConcurrency) {
+    // 2 (not 4) on touch devices: each extra worker adds memory, and iOS
+    // Safari both kills tabs under memory pressure ("a problem repeatedly
+    // occurred") and has shared-memory-growth races across threads. The
+    // 2->4 thread gain on phone cores was small anyway.
     const isTouchDevice = (navigator.maxTouchPoints || 0) > 1;
-    ort.env.wasm.numThreads = Math.min(navigator.hardwareConcurrency, isTouchDevice ? 4 : 8);
+    ort.env.wasm.numThreads = Math.min(navigator.hardwareConcurrency, isTouchDevice ? 2 : 8);
   } else {
     // No cross-origin isolation (first visit before the service worker
     // activates, or service workers unavailable e.g. private browsing).
@@ -658,8 +662,40 @@ async function activateEngine(engine, batchSize) {
   // the JIT caches so the user-visible FPS counter shows steady-state numbers.
   const warmT0 = performance.now();
   for (let i = 0; i < 2; i++) await runEngine([0, 0]);
-  console.info(`  pre-warm: 2 inferences in ${(performance.now() - warmT0).toFixed(0)} ms`);
+  if (engine === "dp") await warmupDpSketchShapes();
+  console.info(`  pre-warm in ${(performance.now() - warmT0).toFixed(0)} ms`);
   return true;
+}
+
+// One extra DP warmup run with the sketch-mode input shapes: guide_ratio > 0
+// and a full-size [B, H, 2] noise tensor (unconditional frames pass a
+// broadcast [1, 1, 1]). This makes the runtime allocate / JIT everything the
+// guided and stochastic modes need *before* the user draws. On the WASM path
+// this matters for stability, not just latency: growing WASM memory
+// mid-interaction is what produced "Out of bounds memory access" crashes on
+// iOS Safari the first time a guide was drawn.
+async function warmupDpSketchShapes() {
+  const B = currentBatchSize;
+  const bufs = _dpBufs;
+  const k = ddimStepScalars(50, 25, true);
+  try {
+    const out = await session.run({
+      sample:      new ort.Tensor("float32", bufs.sample, [B, DP_HORIZON, 2]),
+      timestep:    new ort.Tensor("int64", new BigInt64Array(B).fill(50n), [B]),
+      global_cond: new ort.Tensor("float32", bufs.globalCond, [B, DP_GLOBAL_COND_DIM]),
+      guide:       new ort.Tensor("float32", bufs.zeroGuide, [DP_HORIZON, 2]),
+      guide_ratio: _scalarTensor(1),
+      inv_sqrt_at: _scalarTensor(k.invSqrtAt),
+      som_over_sa: _scalarTensor(k.somOverSa),
+      c0:          _scalarTensor(k.c0),
+      c1:          _scalarTensor(k.c1),
+      c2:          _scalarTensor(k.c2),
+      noise:       new ort.Tensor("float32", bufs.noise, [B, DP_HORIZON, 2]),
+    });
+    try { out.sample_out.dispose(); } catch (e) { /* cpu tensor */ }
+  } catch (e) {
+    console.warn("sketch-shape warmup failed (non-fatal):", e);
+  }
 }
 
 // Short EP descriptor for the status line. On the CPU fallback, note the
@@ -739,6 +775,7 @@ async function setBatchSize(newSize) {
     chosenEp = ep;
     sessionCache.set(currentEngine, { session: newSess, batchSize: newSize, ep });
     for (let i = 0; i < 2; i++) await runEngine([0, 0]);
+    if (currentEngine === "dp") await warmupDpSketchShapes();
     _frameTimes.length = 0;
     statusReady();
   } catch (err) {
@@ -778,6 +815,16 @@ async function setEngine(newEngine) {
     } catch (err) {
       currentEngine = prevEngine; // revert on failure
       throw err;
+    }
+    // On CPU-mode touch devices, keeping both engines resident (~46 MB of
+    // weights plus two runtime arenas) risks the iOS tab-memory kill.
+    // Trade switch latency for headroom by dropping the inactive session.
+    if (chosenEp === "WASM" && (navigator.maxTouchPoints || 0) > 1) {
+      const old = sessionCache.get(prevEngine);
+      if (old) {
+        old.session.release().catch(() => {});
+        sessionCache.delete(prevEngine);
+      }
     }
     _frameTimes.length = 0;
     resetTrajectoryCache();
@@ -1315,6 +1362,11 @@ async function main() {
   const [cgx, cgy] = xy2gui(MAZE_ROWS / 2 - OFFSET, MAZE_COLS / 2 - OFFSET);
   agentGui = [cgx, cgy];
   renderFrame(agentGui[0], agentGui[1], false, null, null);
+
+  // The ORT bundle is injected dynamically by index.html (WebGPU build vs
+  // plain WASM build depending on navigator.gpu); wait until it's loaded.
+  if (window.__ortReady) await window.__ortReady;
+  if (typeof ort === "undefined") throw new Error("ONNX Runtime failed to load");
 
   wireBatchSlider();
   wireStepsSlider();

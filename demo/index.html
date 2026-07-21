@@ -16,16 +16,40 @@
     -->
     <script src="coi-serviceworker.min.js"></script>
     <!--
-      ONNX Runtime Web 1.27.0, webgpu bundle (native WebGPU EP + WASM
-      fallback). The native WebGPU EP has kernels for every op in our graphs
-      (notably Softplus, which the older JSEP backend bounced to the CPU 27
-      times per DP UNet pass -- that alone capped DP at ~6 FPS) and runs the
-      ACT transformer ~2x faster than JSEP on Apple Silicon.
+      ONNX Runtime Web 1.27.0. Two bundles, picked by capability:
+
+      * ort.webgpu.min.js (native WebGPU EP + asyncify WASM fallback) for
+        browsers that expose navigator.gpu. The native WebGPU EP has kernels
+        for every op in our graphs (notably Softplus, which the older JSEP
+        backend bounced to the CPU 27 times per DP UNet pass -- that alone
+        capped DP at ~6 FPS) and runs ACT ~2x faster than JSEP.
+      * ort.wasm.min.js (plain WASM build, no asyncify) for browsers without
+        WebGPU -- iOS/old Safari in particular. The asyncify build's
+        stack-switching is fragile on WebKit when WASM memory grows
+        ("Out of bounds memory access" / "maps out of sync" crashes), and
+        the plain build's binary is 10 MB smaller, which matters for iOS
+        tab-memory limits.
+
+      app.js awaits window.__ortReady before touching ort. Append
+      ?forceWasm=1 to the URL to test the no-WebGPU path in any browser.
     -->
-    <script
-      src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.webgpu.min.js"
-      crossorigin="anonymous"
-    ></script>
+    <script>
+      (function () {
+        var base = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/";
+        var wantWebGpu = "gpu" in navigator &&
+          !/[?&]forceWasm=1/.test(window.location.search);
+        var s = document.createElement("script");
+        s.src = base + (wantWebGpu ? "ort.webgpu.min.js" : "ort.wasm.min.js");
+        s.crossOrigin = "anonymous";
+        window.__ortReady = new Promise(function (resolve, reject) {
+          s.onload = resolve;
+          s.onerror = function () {
+            reject(new Error("Failed to load ONNX Runtime (" + s.src + ")"));
+          };
+        });
+        document.head.appendChild(s);
+      })();
+    </script>
   </head>
   <body>
     <header>
